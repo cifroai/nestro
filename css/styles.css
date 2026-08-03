@@ -34,7 +34,39 @@ body {
   padding: 12px 12px 0;
   border-bottom: 1px solid var(--secondary-bg);
 }
+.header-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #app-header h1 { margin: 0 0 8px; font-size: 20px; font-weight: 700; }
+
+/* Переключатель роли (тестовый) */
+.role-switch { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.role-label { font-size: 12px; color: var(--hint); }
+.role-select {
+  border: 1px solid var(--secondary-bg);
+  background: var(--secondary-bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 13px;
+  max-width: 150px;
+}
+
+/* Полоса напоминаний */
+.reminder-banner {
+  width: 100%;
+  border: none;
+  background: rgba(217, 138, 0, 0.15);
+  color: var(--warn);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.view-title { font-size: 18px; margin: 0 0 6px; }
+.view-hint { font-size: 13px; color: var(--hint); margin: 0 0 14px; }
 
 .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; }
 .tab {
@@ -100,6 +132,46 @@ body {
   cursor: pointer;
 }
 .btn-close { color: var(--danger); }
+.btn-ok { color: #1a9e56; }
+
+/* Блок переноса срока */
+.extension {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--bg);
+}
+.ext-pending { border: 1px solid var(--warn); }
+.ext-approved { border: 1px solid #1a9e56; }
+.ext-rejected { border: 1px solid var(--danger); }
+.ext-status { font-weight: 600; margin-bottom: 4px; }
+.ext-line { color: var(--text); }
+.ext-by { color: var(--hint); }
+
+/* Отчёты */
+.reports {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.reports-title { font-weight: 600; color: var(--hint); margin-bottom: 4px; }
+.report-line { margin-bottom: 2px; }
+
+/* Команда */
+.team-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.team-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--secondary-bg); border-radius: 10px; padding: 10px 12px;
+}
+.team-name { font-weight: 500; }
+.team-actions { display: flex; gap: 8px; }
+
+/* Заметки внутри формы */
+.form-note { font-size: 12px; color: var(--hint); }
+.assignees-box { display: flex; flex-direction: column; gap: 6px; }
 
 /* ── Сводка ── */
 .summary {

@@ -1,16 +1,24 @@
 // summary.js — генерация полной сводки строго по шаблону регламента.
 
 import {
-  CATEGORY_TITLE, NO_TASKS,
+  CATEGORY_TITLE, NO_TASKS, REPORT_TYPE_TITLE,
   groupOperational, sortOrgTech, groupCommercial,
-  formatResponsible, formatDeadline,
+  formatAssignees, formatDeadline, hasPendingExtension,
 } from './model.js';
 
 // Один пункт поручения в текстовом виде.
 function renderTaskLine(t) {
   const lines = [`- ${t.text}`];
-  lines.push(`  Ответственный: ${formatResponsible(t.responsible)}`);
+  lines.push(`  Ответственный: ${formatAssignees(t)}`);
   lines.push(`  Срок: ${formatDeadline(t.deadline)}`);
+  if (t.controllerName) lines.push(`  Контролёр: ${t.controllerName}`);
+  if (t.reportType && t.reportType !== 'none') {
+    const rt = t.reportType === 'other' ? (t.reportTypeNote || 'иное') : REPORT_TYPE_TITLE[t.reportType];
+    lines.push(`  Отчёт: ${rt}`);
+  }
+  if (hasPendingExtension(t)) {
+    lines.push(`  ⏳ Запрошен перенос срока — на согласовании`);
+  }
   return lines.join('\n');
 }
 

@@ -1,5 +1,7 @@
 // model.js — доменная модель поручений.
-// Здесь закодированы правила из регламента «Структура и порядок поручений».
+// Здесь закодированы правила из регламента «Структура и порядок поручений»
+// и расширения второй редакции: исполнители, контролёр, перенос сроков,
+// вид отчёта, напоминания.
 
 // ── Категории (порядок вывода строго фиксирован регламентом) ──────────────
 export const CATEGORIES = [
@@ -13,7 +15,6 @@ export const CATEGORY_TITLE = Object.fromEntries(
 );
 
 // ── Оперативные объекты (порядок менять запрещено, Правило 1) ──────────────
-// Штатный перечень. Пользовательские объекты добавляются в конец (Правило 4).
 export const OPERATIONAL_OBJECTS = [
   'КП-10 — скв. 31013Г',
   'КП-17 — скв. 31708Г',
@@ -29,14 +30,22 @@ export const OPERATIONAL_OBJECTS = [
   'Расконсерв.',
 ];
 
+// Виды отчёта об исполнении.
+export const REPORT_TYPES = [
+  { id: 'none',  title: 'Не требуется' },
+  { id: 'text',  title: 'Текстовый отчёт' },
+  { id: 'file',  title: 'Файл (документ)' },
+  { id: 'photo', title: 'Фото' },
+  { id: 'other', title: 'Иное (уточнить)' },
+];
+export const REPORT_TYPE_TITLE = Object.fromEntries(REPORT_TYPES.map((r) => [r.id, r.title]));
+
 // Плейсхолдеры обязательных полей (Запрет на домысливание).
 export const NO_RESPONSIBLE = 'не определен';
 export const NO_DEADLINE = 'не установлен';
 export const NO_TASKS = 'Поручения отсутствуют.';
 
 // ── Работа со сроком ──────────────────────────────────────────────────────
-// deadline хранится как ISO-строка (напр. '2026-08-10T14:00') либо null.
-
 export function isOverdue(task, now = new Date()) {
   if (!task.deadline) return false;
   return new Date(task.deadline).getTime() < now.getTime();
@@ -46,35 +55,61 @@ export function formatDeadline(deadline) {
   if (!deadline) return NO_DEADLINE;
   const d = new Date(deadline);
   if (Number.isNaN(d.getTime())) return NO_DEADLINE;
-  const date = d.toLocaleDateString('ru-RU', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  });
-  // Время показываем, только если оно задано (не 00:00).
+  const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   if (d.getHours() === 0 && d.getMinutes() === 0) return date;
   const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   return `${date} ${time}`;
 }
 
-export function formatResponsible(responsible) {
-  const v = (responsible || '').trim();
-  return v || NO_RESPONSIBLE;
+// ── Исполнители ────────────────────────────────────────────────────────────
+// assignees: [{id, name}]. Один — индивидуально; двое и более — поровну.
+export function formatAssignees(task) {
+  const list = task.assignees || [];
+  if (!list.length) return NO_RESPONSIBLE;
+  const names = list.map((a) => a.name).join(', ');
+  return list.length > 1 ? `${names} (поровну)` : names;
 }
 
-// ── Фильтрация действующих поручений ──────────────────────────────────────
-// Поручение действует, пока пользователь явно не закрыл его.
+// ── Действующие поручения ──────────────────────────────────────────────────
 export function isActive(task) {
   return task.status !== 'closed';
 }
 
-// ── Сортировки по категориям ──────────────────────────────────────────────
+// ── Права/роли для конкретного поручения (по действующему лицу) ────────────
+export function isAssignee(task, userId) {
+  return (task.assignees || []).some((a) => a.id === userId);
+}
+export function isController(task, userId) {
+  return task.controllerId === userId;
+}
+export function isAuthor(task, userId) {
+  return task.createdById === userId;
+}
 
-// Оперативные: порядок объектов из перечня; новые объекты — в конце.
-// Возвращает упорядоченный список объектов с их поручениями.
+// ── Перенос срока ──────────────────────────────────────────────────────────
+export function hasPendingExtension(task) {
+  return task.extension && task.extension.status === 'pending';
+}
+
+// ── Напоминания ────────────────────────────────────────────────────────────
+// Поручение «на напоминании», если срок наступает в пределах leadHours
+// (или уже просрочен) и оно ещё действует.
+export function isReminderDue(task, now = new Date()) {
+  if (!isActive(task) || !task.deadline) return false;
+  const lead = (task.reminder?.leadHours ?? 24) * 3600 * 1000;
+  const dl = new Date(task.deadline).getTime();
+  return now.getTime() >= dl - lead;
+}
+
+export function remindableTasks(tasks, now = new Date()) {
+  return tasks.filter((t) => isActive(t) && (t.reminder?.enabled ?? true) && isReminderDue(t, now));
+}
+
+// ── Сортировки по категориям ──────────────────────────────────────────────
 export function groupOperational(tasks, customObjects = []) {
   const active = tasks.filter((t) => t.category === 'operational' && isActive(t));
   const order = [...OPERATIONAL_OBJECTS, ...customObjects];
 
-  // Собираем объекты, встретившиеся в поручениях, но отсутствующие в перечне.
   const unknown = [];
   for (const t of active) {
     const obj = t.object || '';
@@ -85,46 +120,37 @@ export function groupOperational(tasks, customObjects = []) {
   return fullOrder.map((obj) => ({
     object: obj,
     isCustom: !OPERATIONAL_OBJECTS.includes(obj),
-    isUnplaced: unknown.includes(obj), // требует определения постоянного места
+    isUnplaced: unknown.includes(obj),
     tasks: active.filter((t) => (t.object || '') === obj),
   }));
 }
 
-// Организационно-технические: просрочка → ближайший срок → приоритет → без срока.
 export function sortOrgTech(tasks, now = new Date()) {
   const active = tasks.filter((t) => t.category === 'org-tech' && isActive(t));
   return active.slice().sort((a, b) => {
     const ao = isOverdue(a, now), bo = isOverdue(b, now);
-    if (ao !== bo) return ao ? -1 : 1;            // просроченные первыми
+    if (ao !== bo) return ao ? -1 : 1;
     const ad = a.deadline ? new Date(a.deadline).getTime() : Infinity;
     const bd = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-    if (ad !== bd) return ad - bd;                 // ближайший срок раньше
-    // при равном сроке — по приоритету (меньше число = выше приоритет)
+    if (ad !== bd) return ad - bd;
     const ap = a.priority ?? 99, bp = b.priority ?? 99;
     return ap - bp;
   });
 }
 
-// Договорно-коммерческие: группировка контрагент → договор → срок,
-// поручения с финансовым риском выводятся первыми.
 export function groupCommercial(tasks, now = new Date()) {
   const active = tasks.filter((t) => t.category === 'commercial' && isActive(t));
 
-  // Ключ группировки: контрагент → договор/проект.
   const groupsMap = new Map();
   for (const t of active) {
     const contractor = (t.contractor || '').trim() || 'Контрагент не указан';
     const contract = (t.contract || '').trim() || 'Договор/проект не указан';
     const key = `${contractor}||${contract}`;
-    if (!groupsMap.has(key)) {
-      groupsMap.set(key, { contractor, contract, tasks: [] });
-    }
+    if (!groupsMap.has(key)) groupsMap.set(key, { contractor, contract, tasks: [] });
     groupsMap.get(key).tasks.push(t);
   }
 
   const groups = [...groupsMap.values()];
-
-  // Внутри группы: финансовый риск первым, затем по сроку.
   for (const g of groups) {
     g.tasks.sort((a, b) => {
       if (!!a.financialRisk !== !!b.financialRisk) return a.financialRisk ? -1 : 1;
@@ -133,15 +159,12 @@ export function groupCommercial(tasks, now = new Date()) {
       return ad - bd;
     });
   }
-
-  // Группы: сначала те, где есть поручения с финансовым риском.
   groups.sort((a, b) => {
     const ar = a.tasks.some((t) => t.financialRisk);
     const br = b.tasks.some((t) => t.financialRisk);
     if (ar !== br) return ar ? -1 : 1;
     return a.contractor.localeCompare(b.contractor, 'ru');
   });
-
   return groups;
 }
 
@@ -150,15 +173,36 @@ export function newTaskId() {
   return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-// Приводит объект поручения к каноничному виду. Ничего не домысливает:
-// отсутствующие ответственный/срок остаются пустыми (null).
 export function normalizeTask(raw) {
   return {
     id: raw.id || newTaskId(),
     category: raw.category,
     text: (raw.text || '').trim(),
-    responsible: (raw.responsible || '').trim() || null,
+
+    // исполнители: массив {id, name}
+    assignees: Array.isArray(raw.assignees) ? raw.assignees.filter((a) => a && a.id) : [],
+
+    // контролёр
+    controllerId: raw.controllerId || null,
+    controllerName: raw.controllerName || null,
+
+    // срок
     deadline: raw.deadline || null,
+
+    // перенос срока
+    extension: raw.extension || null,
+
+    // отчётность
+    reportType: raw.reportType || 'none',
+    reportTypeNote: (raw.reportTypeNote || '').trim() || null,
+    reports: Array.isArray(raw.reports) ? raw.reports : [],
+
+    // напоминание
+    reminder: {
+      enabled: raw.reminder?.enabled ?? true,
+      leadHours: Number(raw.reminder?.leadHours ?? 24),
+    },
+
     // оперативные
     object: raw.object || null,
     // орг-технические
@@ -167,21 +211,26 @@ export function normalizeTask(raw) {
     contractor: (raw.contractor || '').trim() || null,
     contract: (raw.contract || '').trim() || null,
     financialRisk: !!raw.financialRisk,
+
     // общие
-    note: (raw.note || '').trim() || null, // отчёт/комментарий (не закрывает поручение)
+    note: (raw.note || '').trim() || null,
     status: raw.status === 'closed' ? 'closed' : 'active',
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    createdById: raw.createdById || null,
+    createdByName: raw.createdByName || null,
   };
 }
 
-// Проверка обязательных полей формы. Возвращает массив сообщений об ошибках.
 export function validateTask(raw) {
   const errors = [];
   if (!raw.category) errors.push('Не выбрана категория.');
   if (!(raw.text || '').trim()) errors.push('Не заполнена задача.');
   if (raw.category === 'operational' && !(raw.object || '').trim()) {
     errors.push('Для оперативного поручения не выбран объект.');
+  }
+  if (raw.reportType === 'other' && !(raw.reportTypeNote || '').trim()) {
+    errors.push('Уточните вид отчёта («Иное»).');
   }
   return errors;
 }

@@ -7,6 +7,11 @@ export const Telegram = {
   available: !!tg,
   raw: tg,
 
+  // Данные текущего пользователя Telegram (если доступны).
+  user() {
+    return tg?.initDataUnsafe?.user || null;
+  },
+
   init() {
     if (!tg) return;
     tg.ready();

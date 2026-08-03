@@ -4,6 +4,8 @@
 
 const KEY = 'porucheniya_v1';
 const CUSTOM_OBJECTS_KEY = 'poruch_custom_objects_v1';
+const TEAM_KEY = 'poruch_team_v1';
+const CURRENT_USER_KEY = 'poruch_current_user_v1';
 
 function tgCloud() {
   const tg = window.Telegram?.WebApp;
@@ -80,5 +82,35 @@ export const store = {
     localSet(CUSTOM_OBJECTS_KEY, objects);
     const cloud = tgCloud();
     if (cloud) await cloudSet(cloud, CUSTOM_OBJECTS_KEY, objects);
+  },
+
+  async loadTeam() {
+    const cloud = tgCloud();
+    if (cloud) {
+      const data = await cloudGet(cloud, TEAM_KEY);
+      if (data) return data;
+    }
+    return localGet(TEAM_KEY) || [];
+  },
+
+  async saveTeam(team) {
+    localSet(TEAM_KEY, team);
+    const cloud = tgCloud();
+    if (cloud) await cloudSet(cloud, TEAM_KEY, team);
+  },
+
+  async loadCurrentUser() {
+    const cloud = tgCloud();
+    if (cloud) {
+      const data = await cloudGet(cloud, CURRENT_USER_KEY);
+      if (data) return data;
+    }
+    return localGet(CURRENT_USER_KEY) || null;
+  },
+
+  async saveCurrentUser(id) {
+    localSet(CURRENT_USER_KEY, id);
+    const cloud = tgCloud();
+    if (cloud) await cloudSet(cloud, CURRENT_USER_KEY, id);
   },
 };
