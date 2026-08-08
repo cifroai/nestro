@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIFRO — ИИ-инструменты для ТЭК</title>
+<meta name="description" content="Практический курс CIFRO: внедряйте ИИ в процессы нефтегазовой и энергетической отрасли. Разбор реальных производственных кейсов, эксперты ТЭК и AI.">
+<style>
+  :root{
+    --bg: #0c0e08;
+    --bg-alt: #14170f;
+    --card: #1a1e13;
+    --card-2: #191c13;
+    --border: rgba(255,255,255,0.08);
+    --text: #f4f5ee;
+    --text-dim: #b6bba9;
+    --text-faint: #868c78;
+    --accent: #34c778;
+    --accent-dim: #1f8c56;
+    --accent-soft: rgba(52,199,120,0.14);
+    --radius-lg: 28px;
+    --radius-md: 20px;
+    --radius-sm: 12px;
+    --maxw: 1180px;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family: "Inter", "Helvetica Neue", Arial, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img{display:block; width:100%; height:100%; object-fit:cover;}
+
+  /* self-contained media placeholders (no external image requests) */
+  .media-ph{
+    position:relative; width:100%; height:100%;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(52,199,120,0.16), transparent 45%),
+      linear-gradient(155deg, #1c2515 0%, #0c0e08 68%);
+    overflow:hidden;
+  }
+  .media-ph::before{
+    content:""; position:absolute; inset:0; opacity:0.5;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size:36px 36px;
+    mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 75%);
+  }
+  .media-ph .wm{
+    position:absolute; color:var(--accent); opacity:0.16;
+  }
+  .media-ph .wm-center{inset:0; display:flex; align-items:center; justify-content:center;}
+  .media-ph .wm-corner{right:-30px; bottom:-30px;}
+  .avatar-ph{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:2.4rem; color:var(--accent);
+  }
+  a{color:inherit; text-decoration:none;}
+  ul{list-style:none;}
+  button{font:inherit; cursor:pointer; border:none;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+  section{position:relative;}
+
+  h1,h2,h3{font-weight:800; letter-spacing:-0.02em; line-height:1.12;}
+  h1{font-size:clamp(2rem, 5vw, 3.4rem);}
+  h2{font-size:clamp(1.7rem, 4vw, 2.5rem); text-align:center;}
+  h3{font-size:1.25rem;}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--card); border:1px solid var(--border);
+    color:var(--text-dim); font-size:0.85rem; font-weight:600;
+    padding:8px 18px; border-radius:999px; margin-bottom:18px;
+  }
+  .eyebrow .dot{width:6px; height:6px; border-radius:50%; background:var(--accent);}
+  .lead{color:var(--text-dim); font-size:1.05rem; max-width:640px;}
+  .lead.center{margin:14px auto 0; text-align:center;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:16px 30px; border-radius:999px; font-weight:700; font-size:0.98rem;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .btn-accent{background:var(--accent); color:#08130c;}
+  .btn-accent:hover{background:#3fe08c; box-shadow:0 8px 24px rgba(52,199,120,0.35); transform:translateY(-1px);}
+  .btn-ghost{background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border);}
+  .btn-ghost:hover{background:rgba(255,255,255,0.1);}
+  .btn-block{width:100%;}
+
+  /* ---------- NAV ---------- */
+  .nav{
+    position:sticky; top:0; z-index:100;
+    background:rgba(12,14,8,0.82);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav .wrap{display:flex; align-items:center; justify-content:space-between; height:74px;}
+  .logo{font-weight:800; font-size:1.3rem; letter-spacing:-0.02em; display:flex; align-items:center; gap:8px;}
+  .logo .mark{width:10px; height:10px; border-radius:3px; background:var(--accent); display:inline-block;}
+  .nav-links{display:flex; gap:32px; font-size:0.92rem; color:var(--text-dim); font-weight:500;}
+  .nav-links a:hover{color:var(--text);}
+  .nav-cta{display:flex; align-items:center; gap:18px;}
+  @media (max-width:860px){ .nav-links{display:none;} }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    padding:64px 0 0;
+  }
+  .hero-inner{
+    display:grid; grid-template-columns:1.1fr 0.9fr; gap:40px; align-items:center;
+    padding-bottom:56px;
+  }
+  .hero h1{margin-bottom:20px;}
+  .hero .lead{margin-bottom:32px;}
+  .hero-actions{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  .hero-note{color:var(--text-faint); font-size:0.85rem;}
+
+  .hero-media{
+    position:relative; border-radius:var(--radius-lg); overflow:hidden;
+    aspect-ratio:4/5; border:1px solid var(--border);
+  }
+  .hero-media img{filter:saturate(0.9) brightness(0.75);}
+  .hero-media::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(12,14,8,0) 30%, rgba(8,10,6,0.85) 100%);
+  }
+  .hero-card{
+    position:absolute; left:20px; right:20px; bottom:20px; z-index:2;
+    background:rgba(20,23,15,0.85); border:1px solid var(--border);
+    border-radius:var(--radius-md); padding:18px 20px; backdrop-filter:blur(6px);
+  }
+  .hero-card .row{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .hero-card .tag{font-size:0.75rem; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em;}
+  .hero-card .metric{font-weight:800; font-size:1.4rem; color:var(--accent);}
+  .hero-card .bars{display:flex; align-items:flex-end; gap:5px; height:34px;}
+  .hero-card .bars span{flex:1; background:var(--accent); border-radius:3px; opacity:.55;}
+  .hero-card .bars span:nth-child(1){height:40%;}
+  .hero-card .bars span:nth-child(2){height:65%;}
+  .hero-card .bars span:nth-child(3){height:50%;}
+  .hero-card .bars span:nth-child(4){height:90%; opacity:1;}
+  .hero-card .bars span:nth-child(5){height:70%;}
+  .hero-card .bars span:nth-child(6){height:100%; opacity:1;}
+
+  .strip{
+    display:flex; gap:48px; overflow-x:auto; padding:22px 0; border-top:1px solid var(--border);
+    color:var(--text-faint); font-size:0.85rem; font-weight:600; letter-spacing:.03em;
+  }
+  .strip::-webkit-scrollbar{display:none;}
+
+  @media (max-width:900px){
+    .hero-inner{grid-template-columns:1fr;}
+    .hero-media{order:-1; aspect-ratio:16/11;}
+  }
+
+  /* ---------- PRICING ---------- */
+  .pricing{background:var(--bg-alt); padding:88px 0;}
+  .pricing-head{text-align:center; margin-bottom:44px;}
+  .pricing-grid{
+    display:grid; grid-template-columns:repeat(2, 1fr); gap:22px;
+  }
+  .price-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:32px; display:flex; flex-direction:column;
+  }
+  .price-card.featured{
+    background:linear-gradient(160deg, #16341f, #10190f 65%);
+    border-color:rgba(52,199,120,0.35);
+  }
+  .price-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;}
+  .price-name{font-weight:700; font-size:1.1rem;}
+  .discount{
+    background:var(--accent); color:#08130c; font-weight:800; font-size:0.85rem;
+    padding:6px 12px; border-radius:999px;
+  }
+  .price-card h3{margin-bottom:12px;}
+  .price-card p.desc{color:var(--text-dim); font-size:0.95rem; margin-bottom:24px; flex:1;}
+  .price-value{display:flex; align-items:baseline; gap:10px; margin-bottom:22px;}
+  .price-value .now{font-size:2rem; font-weight:800;}
+  .price-value .was{color:var(--text-faint); text-decoration:line-through; font-size:1rem;}
+  .price-features{margin-bottom:26px; display:flex; flex-direction:column; gap:10px;}
+  .price-features li{display:flex; gap:10px; color:var(--text-dim); font-size:0.92rem; align-items:flex-start;}
+  .price-features li svg{flex-shrink:0; margin-top:3px; color:var(--accent);}
+  @media (max-width:760px){ .pricing-grid{grid-template-columns:1fr;} }
+
+  /* ---------- FULL-BLEED FEATURE BLOCKS ---------- */
+  .feature-block{
+    min-height:78vh; display:flex; align-items:flex-end; position:relative;
+    padding:64px 0;
+  }
+  .feature-block img{position:absolute; inset:0; z-index:0; filter:saturate(0.85) brightness(0.55);}
+  .feature-block::before{
+    content:""; position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, rgba(10,12,7,0.15) 0%, rgba(8,10,6,0.95) 92%);
+  }
+  .feature-block .wrap{position:relative; z-index:2;}
+  .feature-block .content{max-width:560px;}
+  .feature-block h2{text-align:left; margin-bottom:16px;}
+  .feature-block p{color:var(--text-dim); font-size:1.02rem;}
+  .feature-block.alt{align-items:flex-start;}
+  .feature-block.alt .content{margin-left:auto; text-align:right;}
+  .feature-block.alt h2{text-align:right;}
+  @media (max-width:760px){
+    .feature-block.alt .content{margin-left:0; text-align:left;}
+    .feature-block.alt h2{text-align:left;}
+  }
+
+  /* ---------- EXPERTS ---------- */
+  .experts{padding:96px 0 88px;}
+  .experts-head{text-align:center; max-width:640px; margin:0 auto 48px;}
+  .experts-scroll{
+    display:flex; gap:20px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory;
+  }
+  .expert-card{
+    flex:0 0 260px; scroll-snap-align:start;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;
+  }
+  .expert-photo{aspect-ratio:3/3.6; position:relative;}
+  .expert-photo img{filter:saturate(0.9) brightness(0.85);}
+  .expert-badge{
+    position:absolute; left:14px; bottom:14px; background:var(--text); color:#0c0e08;
+    font-weight:800; font-size:0.72rem; padding:5px 10px; border-radius:8px; letter-spacing:.02em;
+  }
+  .expert-info{padding:16px 18px 20px;}
+  .expert-info h3{font-size:1rem; margin-bottom:6px;}
+  .expert-info p{color:var(--text-faint); font-size:0.85rem;}
+
+  /* ---------- PROGRAM ---------- */
+  .program{background:var(--bg-alt); padding:96px 0;}
+  .program-head{text-align:center; max-width:680px; margin:0 auto 48px;}
+  .program-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:20px;}
+  .program-card{
+    background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:28px;
+  }
+  .icon-box{
+    width:44px; height:44px; border-radius:12px; background:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center; color:var(--accent); margin-bottom:18px;
+  }
+  .program-card h3{margin-bottom:10px;}
+  .program-card p{color:var(--text-dim); font-size:0.92rem;}
+  @media (max-width:900px){ .program-grid{grid-template-columns:1fr 1fr;} }
+  @media (max-width:600px){ .program-grid{grid-template-columns:1fr;} }
+
+  /* ---------- FAQ ---------- */
+  .faq{padding:96px 0;}
+  .faq-head{text-align:center; margin-bottom:40px;}
+  .faq-list{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
+  .faq-item{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;}
+  .faq-q{
+    width:100%; background:none; color:var(--text); text-align:left;
+    display:flex; justify-content:space-between; align-items:center; gap:16px;
+    padding:20px 22px; font-weight:600; font-size:1rem;
+  }
+  .faq-q .plus{transition:transform .2s ease; color:var(--accent); flex-shrink:0;}
+  .faq-item.open .plus{transform:rotate(45deg);}
+  .faq-a{max-height:0; overflow:hidden; transition:max-height .25s ease;}
+  .faq-a p{color:var(--text-dim); padding:0 22px 20px; font-size:0.94rem;}
+
+  /* ---------- CTA / FOOTER ---------- */
+  .cta-block{padding:96px 0; text-align:center;}
+  .cta-block h2{margin-bottom:16px;}
+  .cta-block .lead{margin:0 auto 32px;}
+
+  footer{background:var(--bg-alt); border-top:1px solid var(--border); padding:56px 0 32px;}
+  .footer-top{display:flex; justify-content:space-between; gap:40px; flex-wrap:wrap; margin-bottom:40px;}
+  .footer-brand p{color:var(--text-faint); font-size:0.88rem; margin-top:10px; max-width:280px;}
+  .footer-cols{display:flex; gap:64px; flex-wrap:wrap;}
+  .footer-col h4{font-size:0.82rem; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; margin-bottom:14px;}
+  .footer-col ul{display:flex; flex-direction:column; gap:10px;}
+  .footer-col a{color:var(--text-dim); font-size:0.92rem;}
+  .footer-col a:hover{color:var(--text);}
+  .footer-bottom{
+    border-top:1px solid var(--border); padding-top:24px;
+    display:flex; justify-content:space-between; color:var(--text-faint); font-size:0.82rem; flex-wrap:wrap; gap:10px;
+  }
+</style>
+</head>
+<body>
+
+  <header class="nav">
+    <div class="wrap">
+      <a href="#top" class="logo"><span class="mark"></span>CIFRO</a>
+      <nav class="nav-links">
+        <a href="#program">Программа</a>
+        <a href="#experts">Эксперты</a>
+        <a href="#pricing">Стоимость</a>
+        <a href="#faq">Вопросы</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="#pricing" class="btn btn-accent">Оставить заявку</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div>
+          <span class="eyebrow"><span class="dot"></span>Курс CIFRO для специалистов ТЭК</span>
+          <h1>Внедряйте ИИ&nbsp;в&nbsp;процессы нефтегазовой и энергетической отрасли</h1>
+          <p class="lead">Научитесь применять искусственный интеллект для оптимизации добычи, прогнозирования отказов оборудования и принятия управленческих решений — на реальных данных вашего производства.</p>
+          <div class="hero-actions">
+            <a href="#pricing" class="btn btn-accent">Оставить заявку</a>
+            <a href="#program" class="btn btn-ghost">Смотреть программу</a>
+          </div>
+          <p class="hero-note" style="margin-top:22px;">Старт потока — 15 сентября · формат онлайн · 8 недель</p>
+        </div>
+
+        <div class="hero-media">
+          <div class="media-ph" role="img" aria-label="Инженер ТЭК работает с ИИ-дашбордом на производственном объекте">
+            <div class="wm wm-center">
+              <svg width="220" height="220" viewBox="0 0 24 24" fill="none"><path d="M4 21V9l6-4v4l6-4v16" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><path d="M4 21h16M9 21v-4h3v4M14 13h2v2h-2zM14 17h2v2h-2z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="hero-card">
+            <div class="row">
+              <span class="tag">Прогноз отказа насоса</span>
+              <span class="metric">−41%</span>
+            </div>
+            <div class="bars"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wrap">
+        <div class="strip">
+          <span>НЕФТЕГАЗ</span><span>ЭЛЕКТРОЭНЕРГЕТИКА</span><span>НЕФТЕХИМИЯ</span><span>ТРУБОПРОВОДНЫЙ ТРАНСПОРТ</span><span>ВОЗОБНОВЛЯЕМАЯ ЭНЕРГЕТИКА</span><span>ГЕНЕРАЦИЯ</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="pricing" id="pricing">
+      <div class="wrap">
+        <div class="pricing-head">
+          <span class="eyebrow"><span class="dot"></span>Старт 15 сентября</span>
+          <h2>Стоимость обучения</h2>
+          <p class="lead center">Выберите формат — с наставником или в самостоятельном темпе.</p>
+        </div>
+
+        <div class="pricing-grid">
+          <div class="price-card featured">
+            <div class="price-top">
+              <span class="price-name">Профи</span>
+              <span class="discount">−30%</span>
+            </div>
+            <h3>Обучение с наставником: разбор вашего кейса и диплом</h3>
+            <p class="desc">Персональный трек под задачи вашего предприятия, разбор кейсов с ментором и сертификат CIFRO.</p>
+            <div class="price-value"><span class="now">62 300 ₽</span><span class="was">89 000 ₽</span></div>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>1:1 разбор рабочего кейса с ментором</li>
+              <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Доступ к библиотеке ИИ-инструментов ТЭК</li>
+              <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Диплом о профессиональной переподготовке</li>
+            </ul>
+            <a href="#" class="btn btn-accent btn-block">Выбрать «Профи»</a>
+          </div>
+
+          <div class="price-card">
+            <div class="price-top">
+              <span class="price-name">Стандарт</span>
+            </div>
+            <h3>Комплексная программа в своём темпе</h3>
+            <p class="desc">Полный курс лекций, практических заданий и материалов без персонального наставника.</p>
+            <div class="price-value"><span class="now">34 900 ₽</span></div>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Все модули курса и практические задания</li>
+              <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Доступ к записям в течение 12 месяцев</li>
+              <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Сертификат об окончании курса</li>
+            </ul>
+            <a href="#" class="btn btn-ghost btn-block">Выбрать «Стандарт»</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE BLOCK 1 -->
+    <section class="feature-block">
+      <div class="media-ph" role="img" aria-label="Промышленный объект ТЭК">
+        <div class="wm wm-corner">
+          <svg width="380" height="380" viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V10l3-2v13M11 21V6l3-2v17M17 21v-9l3-1v10" stroke="currentColor" stroke-width="0.9" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+      <div class="wrap">
+        <div class="content">
+          <h2>Не просто слушайте лекции — а решайте реальную производственную задачу</h2>
+          <p>На протяжении всего курса вы прорабатываете кейс своего предприятия. Каждый модуль — шаг к его решению, а практические задания помогают применить ИИ-инструменты к вашей конкретной ситуации. На выходе — измеримый результат для вашего производства.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE BLOCK 2 -->
+    <section class="feature-block alt">
+      <div class="media-ph" role="img" aria-label="Специалист анализирует данные производства с помощью ИИ">
+        <div class="wm wm-corner" style="right:auto; left:-30px;">
+          <svg width="380" height="380" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="0.9"/><path d="M12 2v3M12 19v3M22 12h-3M5 12H2M19.1 4.9l-2.1 2.1M7 17l-2.1 2.1M19.1 19.1L17 17M7 7 4.9 4.9" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+      <div class="wrap">
+        <div class="content">
+          <h2>Освойте ИИ-инструменты и выйдите на новый уровень эффективности</h2>
+          <p>Научитесь использовать искусственный интеллект в работе: прогнозировать отказы оборудования, оптимизировать логистику и добычу, автоматизировать отчётность и освободить время для действительно важных решений.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPERTS -->
+    <section class="experts" id="experts">
+      <div class="wrap">
+        <div class="experts-head">
+          <h2>Учитесь у экспертов ТЭК и&nbsp;ИИ</h2>
+          <p class="lead center">Лекции, кейсы и прикладные материалы от практиков нефтегазовой отрасли, энергетики и data science.</p>
+        </div>
+
+        <div class="experts-scroll">
+          <div class="expert-card">
+            <div class="expert-photo">
+              <div class="media-ph"><div class="avatar-ph">ИВ</div></div>
+              <span class="expert-badge">DATA SCIENCE</span>
+            </div>
+            <div class="expert-info">
+              <h3>Игорь Волков</h3>
+              <p>Руководитель направления цифровизации добычи</p>
+            </div>
+          </div>
+          <div class="expert-card">
+            <div class="expert-photo">
+              <div class="media-ph"><div class="avatar-ph">АС</div></div>
+              <span class="expert-badge">ML / AI</span>
+            </div>
+            <div class="expert-info">
+              <h3>Анна Соколова</h3>
+              <p>Ведущий ML-инженер, предиктивная аналитика оборудования</p>
+            </div>
+          </div>
+          <div class="expert-card">
+            <div class="expert-photo">
+              <div class="media-ph"><div class="avatar-ph">ДО</div></div>
+              <span class="expert-badge">ЭНЕРГЕТИКА</span>
+            </div>
+            <div class="expert-info">
+              <h3>Дмитрий Орлов</h3>
+              <p>Главный инженер по цифровой трансформации</p>
+            </div>
+          </div>
+          <div class="expert-card">
+            <div class="expert-photo">
+              <div class="media-ph"><div class="avatar-ph">МК</div></div>
+              <span class="expert-badge">УПРАВЛЕНИЕ</span>
+            </div>
+            <div class="expert-info">
+              <h3>Мария Кузнецова</h3>
+              <p>Директор по операционной эффективности</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROGRAM -->
+    <section class="program" id="program">
+      <div class="wrap">
+        <div class="program-head">
+          <span class="eyebrow"><span class="dot"></span>Программа CIFRO</span>
+          <h2>Чему вы научитесь</h2>
+          <p class="lead center">Программа разработана на основе запросов специалистов ТЭК. Мы собрали лучшие практики применения ИИ и адаптировали их под реалии отрасли.</p>
+        </div>
+
+        <div class="program-grid">
+          <div class="program-card">
+            <div class="icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.7 1.5 6.8L12 17.8l-6.1 3.7 1.5-6.8L2.2 9l6.9-.7L12 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+            <h3>Прогнозируйте отказы оборудования</h3>
+            <p>Постройте модели предиктивной аналитики для снижения простоев и аварийных остановок.</p>
+          </div>
+          <div class="program-card">
+            <div class="icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 20h18M6 20V10m6 10V4m6 16v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Оптимизируйте добычу и логистику</h3>
+            <p>Используйте ИИ для планирования и распределения ресурсов на основе данных.</p>
+          </div>
+          <div class="program-card">
+            <div class="icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l5 5v13H6V3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Автоматизируйте отчётность</h3>
+            <p>Делегируйте ИИ рутинный сбор и анализ производственных показателей.</p>
+          </div>
+          <div class="program-card">
+            <div class="icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M22 12h-3M5 12H2M19.1 4.9l-2.1 2.1M7 17l-2.1 2.1M19.1 19.1L17 17M7 7 4.9 4.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Внедряйте ИИ в процессы</h3>
+            <p>Разберётесь, какие ИИ-инструменты подходят под задачи вашего предприятия и как их внедрить.</p>
+          </div>
+          <div class="program-card">
+            <div class="icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4.5 8-11V5l-8-3-8 3v6c0 6.5 8 11 8 11z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+            <h3>Управляйте рисками безопасности</h3>
+            <p>Применяйте ИИ для раннего выявления отклонений и снижения аварийности.</p>
+          </div>
+          <div class="program-card">
+            <div class="icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 18h6M10 22h4M12 2a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+            <h3>Принимайте решения на данных</h3>
+            <p>Смотрите на производство как стратег: используйте ИИ-аналитику для управленческих решений.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+      <div class="wrap">
+        <div class="faq-head">
+          <h2>Частые вопросы</h2>
+        </div>
+        <div class="faq-list">
+          <div class="faq-item">
+            <button class="faq-q">Нужен ли опыт в программировании или data science?<span class="plus">+</span></button>
+            <div class="faq-a"><p>Нет, курс рассчитан на инженеров и руководителей ТЭК без опыта в разработке. Все инструменты разбираются с нуля на примерах отрасли.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q">В каком формате проходит обучение?<span class="plus">+</span></button>
+            <div class="faq-a"><p>Обучение полностью онлайн: видеолекции, практические задания и разбор кейсов. Тариф «Профи» включает встречи с ментором.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q">Можно ли применить курс к моей компании?<span class="plus">+</span></button>
+            <div class="faq-a"><p>Да, на протяжении курса вы работаете над кейсом своего предприятия и получаете применимый результат к моменту выпуска.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q">Что я получу по итогам обучения?<span class="plus">+</span></button>
+            <div class="faq-a"><p>Сертификат об окончании курса, а на тарифе «Профи» — диплом о профессиональной переподготовке установленного образца.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="cta-block">
+      <div class="wrap">
+        <span class="eyebrow"><span class="dot"></span>Старт 15 сентября</span>
+        <h2>Готовы применить ИИ на своём производстве?</h2>
+        <p class="lead center">Оставьте заявку — расскажем о программе и поможем выбрать подходящий тариф.</p>
+        <a href="#pricing" class="btn btn-accent">Оставить заявку</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="#top" class="logo"><span class="mark"></span>CIFRO</a>
+          <p>Практическое обучение применению искусственного интеллекта для специалистов топливно-энергетического комплекса.</p>
+        </div>
+        <div class="footer-cols">
+          <div class="footer-col">
+            <h4>Курс</h4>
+            <ul>
+              <li><a href="#program">Программа</a></li>
+              <li><a href="#experts">Эксперты</a></li>
+              <li><a href="#pricing">Стоимость</a></li>
+              <li><a href="#faq">Вопросы</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Контакты</h4>
+            <ul>
+              <li><a href="mailto:hello@cifro.ru">hello@cifro.ru</a></li>
+              <li><a href="tel:+70000000000">+7 (000) 000-00-00</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 CIFRO. Все права защищены.</span>
+        <span>Макет подготовлен по мотивам структуры лендинга ProductStar × РБК Pro</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.faq-q').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var item = btn.closest('.faq-item');
+        var answer = item.querySelector('.faq-a');
+        var isOpen = item.classList.contains('open');
+        document.querySelectorAll('.faq-item.open').forEach(function(openItem){
+          openItem.classList.remove('open');
+          openItem.querySelector('.faq-a').style.maxHeight = null;
+        });
+        if(!isOpen){
+          item.classList.add('open');
+          answer.style.maxHeight = answer.scrollHeight + 'px';
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
