@@ -35,6 +35,8 @@ const schema = z.object({
   SMTP_FROM: z.string().optional(),
 
   RETENTION_MONTHS: z.coerce.number().int().min(1).max(240).default(24),
+  /** Путь к исполняемому файлу Chromium для генерации PDF (docs/DEPLOYMENT.md). */
+  CHROMIUM_EXECUTABLE_PATH: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   /// Отключение rate limit допустимо только в тестах.
   DISABLE_RATE_LIMIT: z.coerce.boolean().default(false),
