@@ -1,0 +1,1150 @@
+// Nestro Assessment Platform — модель данных.
+// См. docs/DATABASE.md. Изменения только через prisma migrate (только вперёд).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ДОСТУП
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid(2))
+  email        String    @unique
+  fullName     String
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  roles          UserRole[]
+  sessions       Session[]
+  auditLogs      AuditLog[]
+  humanReviews   HumanReview[]
+  invitations    Invitation[]        @relation("InvitationCreator")
+  confirmedFlags RiskFlag[]          @relation("RiskFlagConfirmer")
+  outcomes       EmploymentOutcome[]
+
+  @@index([isActive])
+}
+
+model Role {
+  id          String   @id @default(cuid(2))
+  code        String   @unique
+  title       String
+  description String?
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String @id @default(cuid(2))
+  code        String @unique // resource:action
+  description String
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  grantedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+}
+
+/// Staff-сессия. Хранится только SHA-256 хэш opaque-токена.
+model Session {
+  id            String    @id @default(cuid(2))
+  userId        String
+  tokenHash     String    @unique
+  csrfSecret    String
+  userAgentHash String?
+  ip            String?
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// КОНФИГУРАЦИЯ АССЕССМЕНТА
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Position {
+  id          String   @id @default(cuid(2))
+  code        String   @unique
+  title       String
+  family      String? // например DRILLING_FLUIDS, INTEGRATED_SERVICE
+  description String?
+  isActive    Boolean  @default(true)
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assessments Assessment[]
+  candidates  Candidate[]
+  scenarios   Scenario[]
+  benchmarks  Benchmark[]
+}
+
+/// Одна из восьми агрегированных осей итогового профиля (docs/SCORING.md §8).
+enum CompetencyAxis {
+  TECHNICAL_REASONING
+  SYSTEM_THINKING
+  RISK_MANAGEMENT
+  PREVENTIVE_THINKING
+  DECISION_MAKING
+  OPERATIONAL_MATURITY
+  COMMUNICATION
+  SELF_AWARENESS
+}
+
+model Competency {
+  id          String         @id @default(cuid(2))
+  code        String         @unique
+  title       String
+  description String?
+  axis        CompetencyAxis
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  assessmentLinks AssessmentCompetency[]
+  questionLinks   QuestionCompetency[]
+  rubrics         Rubric[]
+  llmScores       LLMDimensionScore[]
+  humanReviews    HumanReview[]
+  finalScores     FinalScore[]
+  interviewQs     InterviewQuestion[]
+  contradictions  Contradiction[]
+}
+
+model Assessment {
+  id          String   @id @default(cuid(2))
+  positionId  String
+  code        String   @unique
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  position Position            @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  versions AssessmentVersion[]
+
+  @@index([positionId])
+}
+
+enum VersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// После publish запись становится неизменяемой (docs/DATABASE.md §4).
+model AssessmentVersion {
+  id                    String        @id @default(cuid(2))
+  assessmentId          String
+  version               Int
+  status                VersionStatus @default(DRAFT)
+  notes                 String?
+  publishedAt           DateTime?
+  publishedByUserId     String?
+  scoringModelId        String?
+  promptTemplateAId     String?
+  promptTemplateBId     String?
+  llmModelPrimary       String?
+  llmModelSecondary     String?
+  /// Порог расхождения evaluators, при котором требуется human review (§16).
+  disagreementThreshold Decimal       @default(1.0) @db.Decimal(4, 2)
+  /// Порог hard-gate по шкале 0..4 (§19).
+  gateThreshold         Decimal       @default(2.0) @db.Decimal(4, 2)
+  /// Минимальное покрытие весов данными, ниже которого — «Недостаточно данных».
+  minCoverage           Decimal       @default(0.6) @db.Decimal(4, 3)
+  /// Пороги квалификационных категорий (§18), редактируемые.
+  bandThresholds        Json          @default("{\"EXPERT\":85,\"HIGH\":70,\"SUFFICIENT\":55,\"GAPS\":40}")
+  /// Число конструктов для laddering (§7) и целевое число конструктов.
+  ladderConstructCount  Int           @default(4)
+  targetConstructCount  Int           @default(8)
+  similarityThreshold   Decimal       @default(0.62) @db.Decimal(4, 3)
+  /// Снапшот конфигурации на момент публикации (для воспроизводимости).
+  configSnapshot        Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  assessment       Assessment             @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  scoringModel     ScoringModel?          @relation(fields: [scoringModelId], references: [id], onDelete: Restrict)
+  promptTemplateA  PromptTemplate?        @relation("PromptA", fields: [promptTemplateAId], references: [id], onDelete: Restrict)
+  promptTemplateB  PromptTemplate?        @relation("PromptB", fields: [promptTemplateBId], references: [id], onDelete: Restrict)
+  competencies     AssessmentCompetency[]
+  questionVersions QuestionVersion[]
+  scenarios        Scenario[]
+  kellyElements    KellyElement[]
+  kellyTriads      KellyTriad[]
+  invitations      Invitation[]
+  sessions         TestSession[]
+
+  @@unique([assessmentId, version])
+  @@index([status])
+}
+
+model AssessmentCompetency {
+  id                  String  @id @default(cuid(2))
+  assessmentVersionId String
+  competencyId        String
+  /// Вес в процентах; сумма по версии = 100 ± 0.01 (проверяется при публикации).
+  weight              Decimal @db.Decimal(6, 3)
+  isHardGate          Boolean @default(false)
+  minEvidenceCount    Int     @default(4)
+  minQuestionCount    Int     @default(3)
+  orderIndex          Int     @default(0)
+
+  version    AssessmentVersion @relation(fields: [assessmentVersionId], references: [id], onDelete: Cascade)
+  competency Competency        @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+
+  @@unique([assessmentVersionId, competencyId])
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+  LONG_ANSWER
+  NUMERIC
+  RANKING
+  KELLY_TRIAD
+  REPERTORY_GRID
+  SJT
+  MULTI_STAGE_CASE
+  SELF_RATING
+}
+
+enum TestSection {
+  INTRO
+  KELLY_TRIADS
+  REPERTORY_GRID
+  LADDERING
+  SJT_CASES
+  ARGUMENTATION
+  SELF_RATING
+  FINISH
+}
+
+/// Стабильная идентичность вопроса; текст и настройки живут в QuestionVersion.
+model Question {
+  id        String       @id @default(cuid(2))
+  code      String       @unique
+  type      QuestionType
+  createdAt DateTime     @default(now())
+
+  versions QuestionVersion[]
+}
+
+model QuestionVersion {
+  id                  String      @id @default(cuid(2))
+  questionId          String
+  assessmentVersionId String
+  section             TestSection
+  prompt              String
+  helpText            String?
+  /// Дополнительные обязательные подвопросы (структура рассуждения, §11).
+  subFields           Json?
+  options             Json?
+  required            Boolean     @default(true)
+  minLength           Int?
+  maxLength           Int?
+  numericUnit         String?
+  numericMin          Decimal?    @db.Decimal(14, 4)
+  numericMax          Decimal?    @db.Decimal(14, 4)
+  difficulty          Int         @default(2)
+  orderIndex          Int         @default(0)
+  isActive            Boolean     @default(true)
+  randomizable        Boolean     @default(false)
+  scenarioStageId     String?
+  rubricId            String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  question      Question             @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  version       AssessmentVersion    @relation(fields: [assessmentVersionId], references: [id], onDelete: Cascade)
+  scenarioStage ScenarioStage?       @relation(fields: [scenarioStageId], references: [id], onDelete: Cascade)
+  rubric        Rubric?              @relation(fields: [rubricId], references: [id], onDelete: Restrict)
+  competencies  QuestionCompetency[]
+  answers       Answer[]
+  stats         QuestionStat[]
+
+  @@unique([assessmentVersionId, questionId])
+  @@index([assessmentVersionId, section, orderIndex])
+}
+
+model QuestionCompetency {
+  questionVersionId      String
+  competencyId           String
+  /// Вклад вопроса внутри компетенции (docs/SCORING.md §5).
+  weightWithinCompetency Decimal @default(1.0) @db.Decimal(6, 3)
+
+  questionVersion QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Cascade)
+  competency      Competency      @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+
+  @@id([questionVersionId, competencyId])
+}
+
+model Rubric {
+  id           String   @id @default(cuid(2))
+  code         String
+  version      Int      @default(1)
+  competencyId String
+  guidance     String
+  createdAt    DateTime @default(now())
+
+  competency       Competency        @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  levels           RubricLevel[]
+  questionVersions QuestionVersion[]
+
+  @@unique([code, version])
+}
+
+model RubricLevel {
+  id                 String @id @default(cuid(2))
+  rubricId           String
+  level              Int // 0..4
+  descriptor         String
+  positiveIndicators Json?
+  negativeIndicators Json?
+
+  rubric Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  @@unique([rubricId, level])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// СИТУАЦИОННЫЕ КЕЙСЫ
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Scenario {
+  id                  String   @id @default(cuid(2))
+  code                String   @unique
+  assessmentVersionId String
+  positionId          String
+  title               String
+  difficulty          Int      @default(2)
+  /// Группа эквивалентных сценариев (§24): из группы выдаётся один вариант.
+  equivalenceGroup    String?
+  expectedEvidence    Json?
+  unsafeActions       Json?
+  expertNotes         String?
+  orderIndex          Int      @default(0)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  version  AssessmentVersion @relation(fields: [assessmentVersionId], references: [id], onDelete: Cascade)
+  position Position          @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  stages   ScenarioStage[]
+
+  @@index([assessmentVersionId, isActive])
+  @@index([equivalenceGroup])
+}
+
+model ScenarioStage {
+  id                  String  @id @default(cuid(2))
+  scenarioId          String
+  stageIndex          Int
+  situation           String
+  /// Динамика параметров: [{ label, unit, points: [{t, value}] }]
+  dynamics            Json?
+  constraints         String?
+  adjacentServiceInfo String?
+  /// Что раскрывается кандидату только после его решения на предыдущем этапе.
+  revealNote          String?
+
+  scenario  Scenario          @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  questions QuestionVersion[]
+
+  @@unique([scenarioId, stageIndex])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KELLY
+// ─────────────────────────────────────────────────────────────────────────────
+
+model KellyElement {
+  id                  String  @id @default(cuid(2))
+  assessmentVersionId String
+  code                String // E1..E10
+  label               String
+  description         String?
+  isSelf              Boolean @default(false)
+  isIdeal             Boolean @default(false)
+  orderIndex          Int     @default(0)
+
+  version AssessmentVersion @relation(fields: [assessmentVersionId], references: [id], onDelete: Cascade)
+  triadsA KellyTriad[]      @relation("TriadA")
+  triadsB KellyTriad[]      @relation("TriadB")
+  triadsC KellyTriad[]      @relation("TriadC")
+  ratings ConstructRating[]
+
+  @@unique([assessmentVersionId, code])
+}
+
+model KellyTriad {
+  id                  String  @id @default(cuid(2))
+  assessmentVersionId String
+  code                String // T1..T10
+  elementAId          String
+  elementBId          String
+  elementCId          String
+  orderIndex          Int     @default(0)
+  /// Первые триады не рандомизируются (стабильный «разогрев», docs/KELLY_METHOD.md §3).
+  randomizable        Boolean @default(true)
+  isReserve           Boolean @default(false)
+
+  version    AssessmentVersion    @relation(fields: [assessmentVersionId], references: [id], onDelete: Cascade)
+  elementA   KellyElement         @relation("TriadA", fields: [elementAId], references: [id], onDelete: Restrict)
+  elementB   KellyElement         @relation("TriadB", fields: [elementBId], references: [id], onDelete: Restrict)
+  elementC   KellyElement         @relation("TriadC", fields: [elementCId], references: [id], onDelete: Restrict)
+  constructs CandidateConstruct[]
+
+  @@unique([assessmentVersionId, code])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// КАНДИДАТ И ПРОХОЖДЕНИЕ
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Минимальные персональные данные (docs/SECURITY.md §8).
+/// Запрещено добавлять пол, возраст, национальность, религию, здоровье,
+/// семейное положение и иные защищаемые характеристики.
+model Candidate {
+  id              String    @id @default(cuid(2))
+  fullName        String
+  email           String?
+  positionId      String
+  experienceYears Int?
+  sourceChannel   String?
+  externalRef     String?
+  anonymizedAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  position    Position           @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  invitations Invitation[]
+  sessions    TestSession[]
+  consents    ConsentRecord[]
+  outcome     EmploymentOutcome?
+  benchmarks  BenchmarkMember[]
+
+  @@index([positionId])
+  @@index([email])
+}
+
+model ConsentRecord {
+  id            String   @id @default(cuid(2))
+  candidateId   String
+  policyVersion String
+  text          String
+  grantedAt     DateTime @default(now())
+  ip            String?
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+enum InvitationStatus {
+  CREATED
+  SENT
+  OPENED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  REVIEWED
+}
+
+model Invitation {
+  id                  String           @id @default(cuid(2))
+  candidateId         String
+  assessmentVersionId String
+  /// SHA-256 от одноразового токена; сам токен не хранится (§T3).
+  tokenHash           String           @unique
+  status              InvitationStatus @default(CREATED)
+  expiresAt           DateTime
+  sentAt              DateTime?
+  openedAt            DateTime?
+  completedAt         DateTime?
+  maxAttempts         Int              @default(1)
+  attemptsUsed        Int              @default(0)
+  createdByUserId     String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  candidate Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  version   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  createdBy User              @relation("InvitationCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  sessions  TestSession[]
+
+  @@index([status, expiresAt])
+  @@index([candidateId])
+}
+
+enum SessionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  ABANDONED
+}
+
+/// Статус автоматической оценки. PENDING переживает недоступность LLM (§74).
+enum AssessmentRunStatus {
+  NOT_STARTED
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  MANUAL_ONLY
+}
+
+model TestSession {
+  id                  String              @id @default(cuid(2))
+  candidateId         String
+  invitationId        String?
+  /// Снапшот версии: изменения теста не влияют на начатую сессию (§36).
+  assessmentVersionId String
+  status              SessionStatus       @default(NOT_STARTED)
+  assessmentStatus    AssessmentRunStatus @default(NOT_STARTED)
+  /// Детерминированная рандомизация порядка (§24) — воспроизводима.
+  randomSeed          String
+  sectionOrder        Json
+  currentSection      TestSection         @default(INTRO)
+  currentQuestionId   String?
+  progressPercent     Int                 @default(0)
+  startedAt           DateTime?
+  lastActivityAt      DateTime?
+  completedAt         DateTime?
+  reviewRequired      Boolean             @default(false)
+  reviewCompletedAt   DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  candidate       Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  invitation      Invitation?             @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+  version         AssessmentVersion       @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  candidateTokens CandidateSessionToken[]
+  answers         Answer[]
+  events          SessionEvent[]
+  constructs      CandidateConstruct[]
+  gridAnalyses    GridAnalysis[]
+  finalScores     FinalScore[]
+  riskFlags       RiskFlag[]
+  contradictions  Contradiction[]
+  interviewQs     InterviewQuestion[]
+  reports         Report[]
+
+  @@index([status, assessmentStatus])
+  @@index([candidateId])
+  @@index([reviewRequired])
+}
+
+/// Кандидатская сессия доступа (cookie nestro_cand), изолированная от staff.
+model CandidateSessionToken {
+  id            String    @id @default(cuid(2))
+  sessionId     String
+  tokenHash     String    @unique
+  csrfSecret    String
+  ip            String?
+  userAgentHash String?
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+
+  testSession TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, revokedAt])
+}
+
+enum AnswerStatus {
+  DRAFT
+  SUBMITTED
+  SKIPPED
+}
+
+model Answer {
+  id                String       @id @default(cuid(2))
+  sessionId         String
+  questionVersionId String
+  valueJson         Json
+  /// Плоский текст для FTS и для передачи в LLM (недоверенные данные).
+  textValue         String?
+  numericValue      Decimal?     @db.Decimal(14, 4)
+  status            AnswerStatus @default(DRAFT)
+  revisionCount     Int          @default(0)
+  /// Телеметрия (§23). Не является самостоятельным показателем профессионализма.
+  shownAt           DateTime?
+  firstInputAt      DateTime?
+  submittedAt       DateTime?
+  msActive          Int          @default(0)
+  returnCount       Int          @default(0)
+  focusLossCount    Int          @default(0)
+  /// Этап многоэтапного кейса: решение до раскрытия доп. информации (§10).
+  stageIndex        Int?
+  supersededByStage Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  session         TestSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionVersion QuestionVersion  @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  revisions       AnswerRevision[]
+  llmAssessments  LLMAssessment[]
+  humanReviews    HumanReview[]
+  riskFlags       RiskFlag[]
+
+  @@unique([sessionId, questionVersionId, stageIndex])
+  @@index([sessionId])
+}
+
+model AnswerRevision {
+  id        String   @id @default(cuid(2))
+  answerId  String
+  revision  Int
+  valueJson Json
+  createdAt DateTime @default(now())
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@unique([answerId, revision])
+}
+
+/// Технический журнал (§24): переключение вкладки и т. п.
+/// Кадровые выводы на этом основании не делаются.
+model SessionEvent {
+  id         String   @id @default(cuid(2))
+  sessionId  String
+  type       String
+  payload    Json?
+  serverTime DateTime @default(now())
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, type])
+}
+
+model CandidateConstruct {
+  id                    String   @id @default(cuid(2))
+  sessionId             String
+  triadId               String?
+  poleLeft              String
+  poleRight             String
+  similarPairElements   Json?
+  similarityExplanation String?
+  differenceExplanation String?
+  importanceReason      String?
+  rigManifestation      String?
+  experienceExample     String?
+  /// Заполняется только по подтверждению кандидата (§5), никогда автоматически.
+  isDuplicateOf         String?
+  importanceRank        Int?
+  orderIndex            Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  session        TestSession                @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  triad          KellyTriad?                @relation(fields: [triadId], references: [id], onDelete: SetNull)
+  duplicateOf    CandidateConstruct?        @relation("ConstructDuplicate", fields: [isDuplicateOf], references: [id], onDelete: SetNull)
+  duplicates     CandidateConstruct[]       @relation("ConstructDuplicate")
+  ratings        ConstructRating[]
+  ladderSteps    LadderStep[]
+  checksAsA      ConstructSimilarityCheck[] @relation("CheckA")
+  checksAsB      ConstructSimilarityCheck[] @relation("CheckB")
+  contradictions Contradiction[]
+
+  @@index([sessionId, orderIndex])
+}
+
+model ConstructRating {
+  id          String @id @default(cuid(2))
+  constructId String
+  elementId   String
+  rating      Int // CHECK 1..7 (добавляется миграцией)
+
+  construct CandidateConstruct @relation(fields: [constructId], references: [id], onDelete: Cascade)
+  element   KellyElement       @relation(fields: [elementId], references: [id], onDelete: Restrict)
+
+  @@unique([constructId, elementId])
+}
+
+model LadderStep {
+  id          String   @id @default(cuid(2))
+  constructId String
+  depth       Int // 1..5, MAX_LADDER_DEPTH жёстко ограничен в движке
+  question    String
+  answer      String
+  terminalTag String? // METRIC | ACTION | RISK | WELL_OUTCOME
+  createdAt   DateTime @default(now())
+
+  construct CandidateConstruct @relation(fields: [constructId], references: [id], onDelete: Cascade)
+
+  @@unique([constructId, depth])
+}
+
+enum SimilarityVerdict {
+  PENDING
+  SAME
+  DIFFERENT
+}
+
+model ConstructSimilarityCheck {
+  id                   String            @id @default(cuid(2))
+  constructAId         String
+  constructBId         String
+  lexicalScore         Decimal           @db.Decimal(5, 4)
+  semanticScore        Decimal?          @db.Decimal(5, 4)
+  candidateVerdict     SimilarityVerdict @default(PENDING)
+  candidateExplanation String?
+  createdAt            DateTime          @default(now())
+  answeredAt           DateTime?
+
+  constructA CandidateConstruct @relation("CheckA", fields: [constructAId], references: [id], onDelete: Cascade)
+  constructB CandidateConstruct @relation("CheckB", fields: [constructBId], references: [id], onDelete: Cascade)
+
+  @@unique([constructAId, constructBId])
+}
+
+model GridAnalysis {
+  id            String   @id @default(cuid(2))
+  sessionId     String
+  metrics       Json
+  engineVersion String
+  computedAt    DateTime @default(now())
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, computedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ОЦЕНКА
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EvaluatorRole {
+  A
+  B
+}
+
+enum LLMRunStatus {
+  OK
+  INVALID_JSON
+  PROVIDER_ERROR
+  SKIPPED
+}
+
+model LLMAssessment {
+  id               String        @id @default(cuid(2))
+  answerId         String
+  evaluatorRole    EvaluatorRole
+  promptTemplateId String?
+  llmProvider      String
+  llmModel         String
+  llmModelVersion  String?
+  rubricRef        String?
+  rawResponse      String?
+  parsedJson       Json?
+  confidence       Decimal?      @db.Decimal(4, 3)
+  reviewRequired   Boolean       @default(false)
+  status           LLMRunStatus  @default(OK)
+  errorMessage     String?
+  attempt          Int           @default(1)
+  latencyMs        Int?
+  promptTokens     Int?
+  completionTokens Int?
+  createdAt        DateTime      @default(now())
+
+  answer          Answer              @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  promptTemplate  PromptTemplate?     @relation(fields: [promptTemplateId], references: [id], onDelete: Restrict)
+  dimensionScores LLMDimensionScore[]
+  evidence        LLMEvidence[]
+
+  @@unique([answerId, evaluatorRole, attempt])
+  @@index([answerId, evaluatorRole])
+  @@index([status])
+}
+
+model LLMDimensionScore {
+  id                String   @id @default(cuid(2))
+  llmAssessmentId   String
+  competencyId      String
+  /// NULL ⟺ notEnoughEvidence = true (CHECK в миграции). НЕ заменяется нулём (§65).
+  score             Decimal? @db.Decimal(4, 2)
+  level             Int?
+  notEnoughEvidence Boolean  @default(false)
+  explanation       String
+  rubricRule        String?
+  confidence        Decimal  @db.Decimal(4, 3)
+
+  llmAssessment LLMAssessment @relation(fields: [llmAssessmentId], references: [id], onDelete: Cascade)
+  competency    Competency    @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  evidence      LLMEvidence[]
+  humanReviews  HumanReview[]
+
+  @@unique([llmAssessmentId, competencyId])
+}
+
+enum EvidenceKind {
+  SUPPORTING
+  MISSING
+  RISK
+  STRENGTH
+  AMBIGUITY
+}
+
+model LLMEvidence {
+  id               String       @id @default(cuid(2))
+  llmAssessmentId  String
+  dimensionScoreId String?
+  kind             EvidenceKind
+  quote            String
+  comment          String?
+  /// Цитата проверена на вхождение в ответ кандидата (docs/LLM_ASSESSMENT.md §5.1).
+  verified         Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+
+  llmAssessment  LLMAssessment      @relation(fields: [llmAssessmentId], references: [id], onDelete: Cascade)
+  dimensionScore LLMDimensionScore? @relation(fields: [dimensionScoreId], references: [id], onDelete: Cascade)
+
+  @@index([dimensionScoreId, kind])
+}
+
+model HumanReview {
+  id                  String   @id @default(cuid(2))
+  dimensionScoreId    String?
+  answerId            String?
+  competencyId        String
+  modelScore          Decimal? @db.Decimal(4, 2)
+  humanScore          Decimal? @db.Decimal(4, 2)
+  finalScore          Decimal? @db.Decimal(4, 2)
+  reviewReason        String
+  markedUninformative Boolean  @default(false)
+  reviewerId          String
+  createdAt           DateTime @default(now())
+
+  dimensionScore LLMDimensionScore? @relation(fields: [dimensionScoreId], references: [id], onDelete: Cascade)
+  answer         Answer?            @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  competency     Competency         @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  reviewer       User               @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([answerId, competencyId])
+  @@index([reviewerId])
+}
+
+enum ScoreBand {
+  EXPERT
+  HIGH
+  SUFFICIENT
+  GAPS
+  NOT_CONFIRMED
+  INSUFFICIENT_DATA
+}
+
+/// Агрегированный балл. competencyId = null → итог (Overall); axis → ось.
+model FinalScore {
+  id                String          @id @default(cuid(2))
+  sessionId         String
+  competencyId      String?
+  axis              CompetencyAxis?
+  score0to4         Decimal?        @db.Decimal(5, 3)
+  score0to100       Decimal?        @db.Decimal(6, 3)
+  level             Int?
+  confidence        Decimal         @db.Decimal(4, 3)
+  evidenceCount     Int             @default(0)
+  questionCount     Int             @default(0)
+  notEnoughEvidence Boolean         @default(false)
+  coverage          Decimal?        @db.Decimal(4, 3)
+  band              ScoreBand?
+  scoringModelId    String?
+  /// Явный пересчёт создаёт новую запись и ссылается на предыдущую (§32).
+  supersededById    String?         @unique
+  computedAt        DateTime        @default(now())
+
+  session      TestSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  competency   Competency?   @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  scoringModel ScoringModel? @relation(fields: [scoringModelId], references: [id], onDelete: Restrict)
+  supersededBy FinalScore?   @relation("ScoreSupersede", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes   FinalScore?   @relation("ScoreSupersede")
+
+  @@index([sessionId])
+}
+
+enum FlagSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FlagSource {
+  LLM
+  RULE
+  HUMAN
+}
+
+/// Профессиональный маркер риска. Всегда со ссылкой на конкретный ответ (§20).
+model RiskFlag {
+  id                String       @id @default(cuid(2))
+  sessionId         String
+  answerId          String?
+  code              String
+  severity          FlagSeverity @default(MEDIUM)
+  quote             String?
+  explanation       String
+  source            FlagSource
+  confirmedByUserId String?
+  dismissedAt       DateTime?
+  createdAt         DateTime     @default(now())
+
+  session     TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answer      Answer?     @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  confirmedBy User?       @relation("RiskFlagConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, code])
+}
+
+/// «Потенциальное расхождение между декларируемым конструктом и решениями
+/// в кейсах» (§22). Формулировки вида «кандидат лжёт» запрещены.
+model Contradiction {
+  id           String   @id @default(cuid(2))
+  sessionId    String
+  constructId  String?
+  competencyId String?
+  answerIds    Json
+  description  String
+  strength     Decimal  @db.Decimal(4, 3)
+  createdAt    DateTime @default(now())
+
+  session    TestSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  construct  CandidateConstruct? @relation(fields: [constructId], references: [id], onDelete: SetNull)
+  competency Competency?         @relation(fields: [competencyId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+}
+
+/// Вопрос к очному интервью (§46). Обязательно ссылается на ответы кандидата.
+model InterviewQuestion {
+  id           String   @id @default(cuid(2))
+  sessionId    String
+  competencyId String?
+  text         String
+  rationale    String
+  refAnswerIds Json
+  source       String   @default("LLM") // LLM | RULE
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  session    TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  competency Competency? @relation(fields: [competencyId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, orderIndex])
+}
+
+enum ReportFormat {
+  WEB
+  PDF
+}
+
+model Report {
+  id               String       @id @default(cuid(2))
+  sessionId        String
+  format           ReportFormat
+  storageKey       String?
+  sizeBytes        Int?
+  versionsSnapshot Json
+  renderedAt       DateTime     @default(now())
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, format])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// НАКОПЛЕНИЕ, КАЛИБРОВКА, АУДИТ
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Данные после трудоустройства (§30). Требует employment_outcome:write.
+model EmploymentOutcome {
+  id                 String    @id @default(cuid(2))
+  candidateId        String    @unique
+  hiringDecision     String? // HIRED | NOT_HIRED | WITHDRAWN — вносится человеком
+  decisionDate       DateTime?
+  probationResult    String?
+  probationScore     Decimal?  @db.Decimal(5, 2)
+  performanceNotes   String?
+  followUpAssessment Decimal?  @db.Decimal(5, 2)
+  recordedByUserId   String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  candidate  Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  recordedBy User      @relation(fields: [recordedByUserId], references: [id], onDelete: Restrict)
+}
+
+model Benchmark {
+  id          String   @id @default(cuid(2))
+  code        String   @unique
+  title       String
+  positionId  String
+  description String?
+  createdAt   DateTime @default(now())
+
+  position Position          @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  members  BenchmarkMember[]
+}
+
+model BenchmarkMember {
+  benchmarkId String
+  candidateId String
+  addedAt     DateTime @default(now())
+  note        String?
+
+  benchmark Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@id([benchmarkId, candidateId])
+}
+
+model CalibrationRun {
+  id         String    @id @default(cuid(2))
+  label      String
+  positionId String?
+  fromDate   DateTime?
+  toDate     DateTime?
+  sampleSize Int
+  createdAt  DateTime  @default(now())
+
+  metrics CalibrationMetric[]
+}
+
+model CalibrationMetric {
+  id              String  @id @default(cuid(2))
+  runId           String
+  competencyCode  String?
+  metric          String // MAE | BIAS | OVERRIDE_RATE | EXPERT_AGREEMENT | ...
+  value           Decimal @db.Decimal(10, 4)
+  sampleSize      Int
+  /// Только наблюдение; веса автоматически не меняются (§31).
+  observationNote String?
+
+  run CalibrationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, metric])
+}
+
+model QuestionStat {
+  id                    String   @id @default(cuid(2))
+  questionVersionId     String
+  completionRate        Decimal? @db.Decimal(5, 4)
+  averageScore          Decimal? @db.Decimal(5, 3)
+  variance              Decimal? @db.Decimal(8, 5)
+  correlationWithTotal  Decimal? @db.Decimal(6, 5)
+  humanOverrideRate     Decimal? @db.Decimal(5, 4)
+  missingDataFrequency  Decimal? @db.Decimal(5, 4)
+  sampleSize            Int      @default(0)
+  /// Отметка «требует методической проверки» (§50). Автоудаление запрещено.
+  needsMethodicalReview Boolean  @default(false)
+  computedAt            DateTime @default(now())
+
+  questionVersion QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Cascade)
+
+  @@index([questionVersionId, computedAt])
+}
+
+model ScoringModel {
+  id          String   @id @default(cuid(2))
+  code        String
+  version     Int      @default(1)
+  description String?
+  params      Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  versions    AssessmentVersion[]
+  finalScores FinalScore[]
+
+  @@unique([code, version])
+}
+
+enum PromptRole {
+  EVAL_A
+  EVAL_B
+  INTERVIEW_Q
+  DEDUP
+  CONSTRUCT_MAP
+}
+
+model PromptTemplate {
+  id           String     @id @default(cuid(2))
+  code         String
+  version      Int        @default(1)
+  role         PromptRole
+  systemPrompt String
+  userTemplate String
+  jsonSchema   Json
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  versionsA      AssessmentVersion[] @relation("PromptA")
+  versionsB      AssessmentVersion[] @relation("PromptB")
+  llmAssessments LLMAssessment[]
+
+  @@unique([code, version])
+}
+
+enum ActorKind {
+  USER
+  CANDIDATE
+  SYSTEM
+}
+
+/// Append-only. UPDATE/DELETE отозваны у прикладной роли БД (docs/DEPLOYMENT.md §5).
+model AuditLog {
+  id          String    @id @default(cuid(2))
+  actorUserId String?
+  actorKind   ActorKind @default(USER)
+  actorLabel  String?
+  action      String
+  entity      String
+  entityId    String?
+  oldValue    Json?
+  newValue    Json?
+  ip          String?
+  requestId   String?
+  createdAt   DateTime  @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
