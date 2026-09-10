@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Корпоративный инженерный минимализм (docs/ARCHITECTURE.md §7).
+  Красный (danger) применяется ИСКЛЮЧИТЕЛЬНО для технических предупреждений
+  интерфейса и никогда для оценки кандидата.
+*/
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-graphite-50 text-graphite-900 antialiased;
+  font-feature-settings: 'tnum' 0;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Фокус всегда виден: клавиатурная навигация обязательна. */
+:focus-visible {
+  @apply outline-none ring-2 ring-accent-600 ring-offset-1 ring-offset-white;
+}
+
+.skip-link {
+  @apply absolute left-2 top-2 z-50 -translate-y-16 rounded bg-white px-3 py-2 text-sm shadow focus:translate-y-0;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    @apply bg-white;
+  }
+}

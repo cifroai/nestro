@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import type { ZodSchema } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import { ZodError } from 'zod';
 import { ApiError, badRequest, forbidden, internal, unauthenticated } from './errors.js';
 import { buildRequestContext, type RequestContext } from './context.js';
@@ -21,8 +21,8 @@ export interface RouteOptions<TBody, TQuery> {
   permission?: Permission | Permission[];
   /** true — достаточно одного права из списка (по умолчанию нужны все). */
   anyPermission?: boolean;
-  bodySchema?: ZodSchema<TBody>;
-  querySchema?: ZodSchema<TQuery>;
+  bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
+  querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
   rateLimit?: { rule: keyof typeof RATE_LIMITS; keyOf?: (ctx: RequestContext) => string };
   /** Отключение CSRF допустимо только для публичного логина с проверкой Origin. */
   skipCsrf?: boolean;

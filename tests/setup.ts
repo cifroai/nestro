@@ -1,4 +1,5 @@
-process.env.NODE_ENV = 'test';
+// NODE_ENV задаётся vitest; остальные переменные подставляем для тестов.
+Object.assign(process.env, { NODE_ENV: process.env.NODE_ENV ?? 'test' });
 process.env.DATABASE_URL ??= 'postgresql://nestro:nestro@127.0.0.1:5432/nestro_test?schema=public';
 process.env.REDIS_URL ??= 'redis://127.0.0.1:6379/1';
 process.env.SESSION_SECRET ??= 'test-session-secret-000000000000000000000000';
