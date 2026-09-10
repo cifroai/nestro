@@ -5,6 +5,7 @@ import { ApiRequestError, api } from '../../../lib/api.js';
 import {
   Button,
   Card,
+  FilterField,
   Notice,
   Spinner,
   Table,
@@ -82,23 +83,29 @@ export function UsersView() {
           </Notice>
         )}
         <div className="grid gap-3 lg:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Электронная почта</label>
-            <TextInput
-              type="email"
-              value={form.email}
-              onChange={(event) => setForm({ ...form, email: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">ФИО</label>
-            <TextInput
-              value={form.fullName}
-              onChange={(event) => setForm({ ...form, fullName: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Роли</label>
+          <FilterField label="Электронная почта">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="ФИО">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={form.fullName}
+                onChange={(event) => setForm({ ...form, fullName: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <fieldset>
+            {/* Набор ролей — группа переключателей, поэтому подпись оформлена
+                легендой: htmlFor к группе кнопок неприменим. */}
+            <legend className="mb-1 block text-2xs uppercase text-graphite-500">Роли</legend>
             <div className="flex flex-wrap gap-1.5">
               {ASSIGNABLE.map((role) => (
                 <button
@@ -123,7 +130,7 @@ export function UsersView() {
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
         </div>
         <Notice tone="method">
           Роль «Кандидат» сотрудникам не назначается: кандидаты проходят тестирование

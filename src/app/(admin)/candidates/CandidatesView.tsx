@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FilterField,
   LevelIndicator,
   Notice,
   Select,
@@ -104,93 +105,115 @@ export function CandidatesView() {
     <div className="space-y-4">
       <Card title="Фильтры">
         <div className="grid gap-3 lg:grid-cols-4">
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Должность</label>
-            <Select
-              value={filters.positionCode}
-              onChange={(event) => setFilters({ ...filters, positionCode: event.target.value })}
-            >
-              <option value="">все</option>
-              {positions.map((position) => (
-                <option key={position.code} value={position.code}>
-                  {position.title}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Квалификационный уровень</label>
-            <Select value={filters.band} onChange={(event) => setFilters({ ...filters, band: event.target.value })}>
-              <option value="">любой</option>
-              {Object.entries(BAND_LABELS).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Компетенция</label>
-            <Select
-              value={filters.competencyCode}
-              onChange={(event) => setFilters({ ...filters, competencyCode: event.target.value })}
-            >
-              <option value="">любая</option>
-              {competencies.map((competency) => (
-                <option key={competency.code} value={competency.code}>
-                  {competency.title}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Статус сессии</label>
-            <Select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
-              <option value="">любой</option>
-              <option value="IN_PROGRESS">в процессе</option>
-              <option value="COMPLETED">завершена</option>
-              <option value="EXPIRED">срок истёк</option>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Итог не ниже</label>
-            <TextInput
-              type="number"
-              min={0}
-              max={100}
-              value={filters.minScore}
-              onChange={(event) => setFilters({ ...filters, minScore: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Уверенность не ниже</label>
-            <TextInput
-              type="number"
-              min={0}
-              max={1}
-              step={0.05}
-              value={filters.minConfidence}
-              onChange={(event) => setFilters({ ...filters, minConfidence: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Экспертная проверка</label>
-            <Select
-              value={filters.reviewRequired}
-              onChange={(event) => setFilters({ ...filters, reviewRequired: event.target.value })}
-            >
-              <option value="">любая</option>
-              <option value="true">требуется</option>
-              <option value="false">не требуется</option>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Поиск по ФИО</label>
-            <TextInput
-              value={filters.search}
-              onChange={(event) => setFilters({ ...filters, search: event.target.value })}
-            />
-          </div>
+          <FilterField label="Должность">
+            {({ id }) => (
+              <Select
+                id={id}
+                value={filters.positionCode}
+                onChange={(event) => setFilters({ ...filters, positionCode: event.target.value })}
+              >
+                <option value="">все</option>
+                {positions.map((position) => (
+                  <option key={position.code} value={position.code}>
+                    {position.title}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FilterField>
+          <FilterField label="Квалификационный уровень">
+            {({ id }) => (
+              <Select
+                id={id}
+                value={filters.band}
+                onChange={(event) => setFilters({ ...filters, band: event.target.value })}
+              >
+                <option value="">любой</option>
+                {Object.entries(BAND_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FilterField>
+          <FilterField label="Компетенция">
+            {({ id }) => (
+              <Select
+                id={id}
+                value={filters.competencyCode}
+                onChange={(event) => setFilters({ ...filters, competencyCode: event.target.value })}
+              >
+                <option value="">любая</option>
+                {competencies.map((competency) => (
+                  <option key={competency.code} value={competency.code}>
+                    {competency.title}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FilterField>
+          <FilterField label="Статус сессии">
+            {({ id }) => (
+              <Select
+                id={id}
+                value={filters.status}
+                onChange={(event) => setFilters({ ...filters, status: event.target.value })}
+              >
+                <option value="">любой</option>
+                <option value="IN_PROGRESS">в процессе</option>
+                <option value="COMPLETED">завершена</option>
+                <option value="EXPIRED">срок истёк</option>
+              </Select>
+            )}
+          </FilterField>
+          <FilterField label="Итог не ниже">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                type="number"
+                min={0}
+                max={100}
+                value={filters.minScore}
+                onChange={(event) => setFilters({ ...filters, minScore: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Уверенность не ниже">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                value={filters.minConfidence}
+                onChange={(event) => setFilters({ ...filters, minConfidence: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Экспертная проверка">
+            {({ id }) => (
+              <Select
+                id={id}
+                value={filters.reviewRequired}
+                onChange={(event) => setFilters({ ...filters, reviewRequired: event.target.value })}
+              >
+                <option value="">любая</option>
+                <option value="true">требуется</option>
+                <option value="false">не требуется</option>
+              </Select>
+            )}
+          </FilterField>
+          <FilterField label="Поиск по ФИО">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={filters.search}
+                onChange={(event) => setFilters({ ...filters, search: event.target.value })}
+              />
+            )}
+          </FilterField>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => void load()}>

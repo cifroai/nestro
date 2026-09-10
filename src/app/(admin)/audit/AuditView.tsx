@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FilterField,
   Notice,
   Spinner,
   Table,
@@ -53,29 +54,35 @@ export function AuditView() {
     <div className="space-y-4">
       <Card title="Фильтры">
         <div className="grid gap-3 lg:grid-cols-4">
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Сущность</label>
-            <TextInput
-              value={filters.entity}
-              placeholder="AssessmentVersion, HumanReview…"
-              onChange={(event) => setFilters({ ...filters, entity: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Действие содержит</label>
-            <TextInput
-              value={filters.action}
-              placeholder="weights, review, scoring…"
-              onChange={(event) => setFilters({ ...filters, action: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Идентификатор объекта</label>
-            <TextInput
-              value={filters.entityId}
-              onChange={(event) => setFilters({ ...filters, entityId: event.target.value })}
-            />
-          </div>
+          <FilterField label="Сущность">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={filters.entity}
+                placeholder="AssessmentVersion, HumanReview…"
+                onChange={(event) => setFilters({ ...filters, entity: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Действие содержит">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={filters.action}
+                placeholder="weights, review, scoring…"
+                onChange={(event) => setFilters({ ...filters, action: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Идентификатор объекта">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={filters.entityId}
+                onChange={(event) => setFilters({ ...filters, entityId: event.target.value })}
+              />
+            )}
+          </FilterField>
           <div className="flex items-end">
             <Button size="sm" onClick={() => void load()}>
               Применить

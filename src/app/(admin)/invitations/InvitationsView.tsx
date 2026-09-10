@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FilterField,
   Notice,
   Select,
   Spinner,
@@ -115,57 +116,72 @@ export function InvitationsView() {
           </Notice>
         )}
         <div className="grid gap-3 lg:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">ФИО кандидата</label>
-            <TextInput value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Электронная почта</label>
-            <TextInput
-              type="email"
-              value={form.email}
-              onChange={(event) => setForm({ ...form, email: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Версия ассессмента</label>
-            <Select
-              value={form.assessmentVersionId}
-              onChange={(event) => setForm({ ...form, assessmentVersionId: event.target.value })}
-            >
-              <option value="">выберите</option>
-              {versions.map((version) => (
-                <option key={version.id} value={version.id}>
-                  {version.assessment.position.title} — {version.assessment.title}, в. {version.version}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Срок прохождения</label>
-            <TextInput
-              type="datetime-local"
-              value={form.expiresAt}
-              onChange={(event) => setForm({ ...form, expiresAt: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Стаж, лет</label>
-            <TextInput
-              type="number"
-              min={0}
-              max={70}
-              value={form.experienceYears}
-              onChange={(event) => setForm({ ...form, experienceYears: event.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Источник кандидата</label>
-            <TextInput
-              value={form.sourceChannel}
-              onChange={(event) => setForm({ ...form, sourceChannel: event.target.value })}
-            />
-          </div>
+          <FilterField label="ФИО кандидата">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={form.fullName}
+                onChange={(event) => setForm({ ...form, fullName: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Электронная почта">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Версия ассессмента">
+            {({ id }) => (
+              <Select
+                id={id}
+                value={form.assessmentVersionId}
+                onChange={(event) => setForm({ ...form, assessmentVersionId: event.target.value })}
+              >
+                <option value="">выберите</option>
+                {versions.map((version) => (
+                  <option key={version.id} value={version.id}>
+                    {version.assessment.position.title} — {version.assessment.title}, в. {version.version}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FilterField>
+          <FilterField label="Срок прохождения">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                type="datetime-local"
+                value={form.expiresAt}
+                onChange={(event) => setForm({ ...form, expiresAt: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Стаж, лет">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                type="number"
+                min={0}
+                max={70}
+                value={form.experienceYears}
+                onChange={(event) => setForm({ ...form, experienceYears: event.target.value })}
+              />
+            )}
+          </FilterField>
+          <FilterField label="Источник кандидата">
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={form.sourceChannel}
+                onChange={(event) => setForm({ ...form, sourceChannel: event.target.value })}
+              />
+            )}
+          </FilterField>
         </div>
         <Notice tone="method">
           Собираются только профессиональные данные. Пол, возраст, национальность, вероисповедание,

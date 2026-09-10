@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FilterField,
   Notice,
   Select,
   Spinner,
@@ -131,18 +132,19 @@ export function BuilderView() {
     <div className="space-y-5">
       <Card title="Ассессменты и версии">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="w-96">
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Версия</label>
-            <Select value={versionId} onChange={(event) => setVersionId(event.target.value)}>
-              {assessments.flatMap((assessment) =>
-                assessment.versions.map((version) => (
-                  <option key={version.id} value={version.id}>
-                    {assessment.position.title} — {assessment.title}, в. {version.version} ({version.status})
-                  </option>
-                )),
-              )}
-            </Select>
-          </div>
+          <FilterField label="Версия" className="w-96">
+            {({ id }) => (
+              <Select id={id} value={versionId} onChange={(event) => setVersionId(event.target.value)}>
+                {assessments.flatMap((assessment) =>
+                  assessment.versions.map((version) => (
+                    <option key={version.id} value={version.id}>
+                      {assessment.position.title} — {assessment.title}, в. {version.version} ({version.status})
+                    </option>
+                  )),
+                )}
+              </Select>
+            )}
+          </FilterField>
           {detail && (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -237,6 +239,7 @@ export function BuilderView() {
                   </Td>
                   <Td numeric align="right">
                     <TextInput
+                      aria-label={`Вес компетенции «${item.title}», %`}
                       type="number"
                       min={0}
                       max={100}
@@ -253,6 +256,7 @@ export function BuilderView() {
                   </Td>
                   <Td>
                     <input
+                      aria-label={`Компетенция «${item.title}» — критическая`}
                       type="checkbox"
                       disabled={!editable}
                       checked={item.isHardGate}
@@ -266,6 +270,7 @@ export function BuilderView() {
                   </Td>
                   <Td numeric align="right">
                     <TextInput
+                      aria-label={`Минимум доказательств по компетенции «${item.title}»`}
                       type="number"
                       min={1}
                       max={50}
@@ -281,6 +286,7 @@ export function BuilderView() {
                   </Td>
                   <Td numeric align="right">
                     <TextInput
+                      aria-label={`Минимум вопросов по компетенции «${item.title}»`}
                       type="number"
                       min={1}
                       max={50}
@@ -422,18 +428,20 @@ function ThresholdEditor({
     setter: (value: number) => void,
     options: { min: number; max: number; step: number },
   ) => (
-    <div key={label}>
-      <label className="mb-1 block text-2xs uppercase text-graphite-500">{label}</label>
-      <TextInput
-        type="number"
-        disabled={!editable}
-        value={value}
-        min={options.min}
-        max={options.max}
-        step={options.step}
-        onChange={(event) => setter(Number(event.target.value))}
-      />
-    </div>
+    <FilterField key={label} label={label}>
+      {({ id }) => (
+        <TextInput
+          id={id}
+          type="number"
+          disabled={!editable}
+          value={value}
+          min={options.min}
+          max={options.max}
+          step={options.step}
+          onChange={(event) => setter(Number(event.target.value))}
+        />
+      )}
+    </FilterField>
   );
 
   return (

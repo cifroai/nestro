@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Button, Card, Notice, Table, Td } from '../ui/index.js';
 import { LineChart } from '../charts/index.js';
 import { AnswerField, AntiPrimingNotice, StepActions } from './StepShell.js';
@@ -72,6 +72,7 @@ export function TriadStep({
   onSubmit: () => void;
   submitting: boolean;
 }) {
+  const poleFieldId = useId();
   const toggle = (code: string): void => {
     const selected = value.similarPair.includes(code)
       ? value.similarPair.filter((c) => c !== code)
@@ -138,22 +139,24 @@ export function TriadStep({
 
       <div className="mb-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium text-graphite-800">
+          <label htmlFor={`${poleFieldId}-left`} className="mb-1 block text-sm font-medium text-graphite-800">
             Первый полюс критерия
             <span className="ml-1 font-normal text-graphite-400">короткая формулировка</span>
           </label>
           <input
+            id={`${poleFieldId}-left`}
             value={value.poleLeft}
             onChange={(event) => onChange({ ...value, poleLeft: event.target.value })}
             className="w-full rounded border border-graphite-300 px-3 py-2 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-graphite-800">
+          <label htmlFor={`${poleFieldId}-right`} className="mb-1 block text-sm font-medium text-graphite-800">
             Противоположный полюс
             <span className="ml-1 font-normal text-graphite-400">короткая формулировка</span>
           </label>
           <input
+            id={`${poleFieldId}-right`}
             value={value.poleRight}
             onChange={(event) => onChange({ ...value, poleRight: event.target.value })}
             className="w-full rounded border border-graphite-300 px-3 py-2 text-sm"

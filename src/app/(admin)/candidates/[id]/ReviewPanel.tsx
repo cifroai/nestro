@@ -102,6 +102,7 @@ export function ReviewPanel({
       </label>
 
       <textarea
+        aria-label="Причина изменения или подтверждения оценки"
         rows={3}
         value={reason}
         onChange={(event) => setReason(event.target.value)}

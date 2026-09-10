@@ -7,6 +7,7 @@ import {
   Card,
   ChartWithTable,
   EmptyState,
+  FilterField,
   Notice,
   Select,
   Spinner,
@@ -118,17 +119,18 @@ export function AnalyticsView() {
         }
       >
         <div className="flex flex-wrap items-end gap-3">
-          <div className="w-64">
-            <label className="mb-1 block text-2xs uppercase text-graphite-500">Должность</label>
-            <Select value={positionCode} onChange={(event) => setPositionCode(event.target.value)}>
-              <option value="">все должности</option>
-              {positions.map((position) => (
-                <option key={position.code} value={position.code}>
-                  {position.title}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <FilterField label="Должность" className="w-64">
+            {({ id }) => (
+              <Select id={id} value={positionCode} onChange={(event) => setPositionCode(event.target.value)}>
+                <option value="">все должности</option>
+                {positions.map((position) => (
+                  <option key={position.code} value={position.code}>
+                    {position.title}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FilterField>
           <Button size="sm" onClick={() => void load()}>
             Обновить
           </Button>

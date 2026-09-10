@@ -120,6 +120,33 @@ export function Field({
   );
 }
 
+/**
+ * Компактное поле фильтра административных экранов.
+ *
+ * Отдельный примитив нужен, чтобы подпись фильтра была связана с элементом
+ * управления через htmlFor/id: без связи программы экранного доступа
+ * зачитывают выпадающий список без названия.
+ */
+export function FilterField({
+  label,
+  className = '',
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: (props: { id: string }) => ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1 block text-2xs uppercase text-graphite-500">
+        {label}
+      </label>
+      {children({ id })}
+    </div>
+  );
+}
+
 const INPUT_CLASS =
   'w-full rounded border border-graphite-300 bg-white px-3 py-2 text-sm text-graphite-900 ' +
   'placeholder:text-graphite-400 focus:border-accent-600';

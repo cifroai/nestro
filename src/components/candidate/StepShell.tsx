@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button, Notice, ProgressBar, TechError } from '../ui/index.js';
 import { SECTION_LABELS } from '../../lib/format.js';
 
@@ -170,28 +170,41 @@ export function AnswerField({
   error?: string | null;
 }) {
   const [touched, setTouched] = useState(false);
+  const fieldId = useId();
+  const hintId = `${fieldId}-hint`;
+  const statusId = `${fieldId}-status`;
   const length = value.trim().length;
   const tooShort = minLength !== undefined && length > 0 && length < minLength;
   const empty = touched && length === 0;
+  const statusText =
+    error ?? (empty ? 'Поле обязательно для заполнения' : tooShort ? `Ещё ${minLength! - length} симв.` : '');
 
+  // Подпись связана с полем через htmlFor/id: без этого программы экранного
+  // доступа не сообщают кандидату, что именно он заполняет.
   return (
     <div className="mb-4">
-      <label className="mb-1 block text-sm font-medium text-graphite-800">
+      <label htmlFor={fieldId} className="mb-1 block text-sm font-medium text-graphite-800">
         {label}
         {minLength ? <span className="ml-1 font-normal text-graphite-400">не менее {minLength} симв.</span> : null}
       </label>
-      {hint && <p className="mb-1 text-xs text-graphite-500">{hint}</p>}
+      {hint && (
+        <p id={hintId} className="mb-1 text-xs text-graphite-500">
+          {hint}
+        </p>
+      )}
       <textarea
+        id={fieldId}
         rows={rows}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onBlur={() => setTouched(true)}
         aria-invalid={tooShort || empty || Boolean(error)}
+        aria-describedby={[hint ? hintId : null, statusText ? statusId : null].filter(Boolean).join(' ') || undefined}
         className="w-full rounded border border-graphite-300 bg-white px-3 py-2 text-sm leading-relaxed text-graphite-900 focus:border-accent-600"
       />
       <div className="mt-1 flex items-baseline justify-between text-2xs">
-        <span className={tooShort || empty || error ? 'text-danger-700' : 'text-graphite-400'}>
-          {error ?? (empty ? 'Поле обязательно для заполнения' : tooShort ? `Ещё ${minLength! - length} симв.` : '')}
+        <span id={statusId} className={tooShort || empty || error ? 'text-danger-700' : 'text-graphite-400'}>
+          {statusText}
         </span>
         <span className="tnum text-graphite-400">{length}</span>
       </div>
