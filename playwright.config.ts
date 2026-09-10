@@ -6,7 +6,9 @@ import { existsSync } from 'node:fs';
  * Сервер поднимается из production-сборки, база — тестовая.
  */
 
-const PORT = Number(process.env.E2E_PORT ?? 3131);
+// Порт должен быть одинаковым в процессе-раннере и в рабочих процессах,
+// поэтому вычисляемые значения недопустимы. Переопределяется через E2E_PORT.
+const PORT = Number(process.env.E2E_PORT ?? 3457);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -34,11 +36,19 @@ export default defineConfig({
     ...(executablePath ? { launchOptions: { executablePath, args: ['--no-sandbox'] } } : {}),
   },
   webServer: {
-    command: 'node .next/standalone/server.js',
+    // `next start`, а не standalone-сервер: standalone-каталог не содержит
+    // .next/static (в образе он копируется отдельно), поэтому клиентские
+    // скрипты не загрузились бы и страница осталась бы без гидратации.
+    command: `npx next start -p ${PORT} -H 127.0.0.1`,
     url: `${BASE_URL}/api/healthz`,
-    reuseExistingServer: !process.env.CI,
+    // Сервер всегда поднимается заново: иначе можно переиспользовать
+    // процесс с другим окружением.
+    reuseExistingServer: false,
     timeout: 180_000,
     env: {
+      // Сборка production-режима: признак Secure у cookie определяется
+      // схемой APP_URL, поэтому проверки по HTTP без TLS выполняются
+      // на том же режиме, что и промышленная установка.
       NODE_ENV: 'production',
       PORT: String(PORT),
       HOSTNAME: '127.0.0.1',

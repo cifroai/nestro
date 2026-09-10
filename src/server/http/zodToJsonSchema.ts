@@ -1,4 +1,4 @@
-import { z, ZodFirstPartyTypeKind, type ZodTypeAny } from 'zod';
+import { type z, ZodFirstPartyTypeKind, type ZodTypeAny } from 'zod';
 
 /**
  * Преобразование Zod-схемы в JSON Schema для OpenAPI.

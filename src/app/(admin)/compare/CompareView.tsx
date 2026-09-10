@@ -58,14 +58,18 @@ export function CompareView() {
   const [data, setData] = useState<Comparison | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Набор сессий приводится к строке: список пересобирается при каждом
+  // рендере, и сравнение по ссылке приводило бы к лишним запросам.
+  const sessionKey = sessions.join(',');
   const load = useCallback(async () => {
-    if (sessions.length < 2) return;
+    const sessionIds = sessionKey ? sessionKey.split(',') : [];
+    if (sessionIds.length < 2) return;
     try {
-      setData(await api.post<Comparison>('/api/candidates/compare', { sessionIds: sessions }));
+      setData(await api.post<Comparison>('/api/candidates/compare', { sessionIds }));
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Не удалось выполнить сравнение');
     }
-  }, [sessions.join(',')]);
+  }, [sessionKey]);
 
   useEffect(() => {
     void load();

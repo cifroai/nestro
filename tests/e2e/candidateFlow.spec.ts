@@ -64,11 +64,14 @@ test('HR входит в систему и видит дашборд', async ({ 
 test('кандидат открывает приглашение, проходит триаду и продолжает после перезагрузки', async ({
   page,
   request,
+  baseURL,
 }) => {
+  const origin = baseURL as string;
+
   // Приглашение создаётся через API от имени HR.
   const loginResponse = await request.post('/api/auth/login', {
     data: { email: HR_EMAIL, password: PASSWORD },
-    headers: { origin: new URL(page.url() || 'http://127.0.0.1').origin },
+    headers: { origin },
   });
   expect(loginResponse.ok()).toBeTruthy();
   const { csrfToken } = (await loginResponse.json()) as { csrfToken: string };
@@ -84,7 +87,7 @@ test('кандидат открывает приглашение, проходи
       assessmentVersionId: version.id,
       expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
     },
-    headers: { 'x-csrf-token': csrfToken },
+    headers: { 'x-csrf-token': csrfToken, origin },
   });
   expect(invitationResponse.status()).toBe(201);
   const created = (await invitationResponse.json()) as { invitation: { url: string } };
@@ -95,8 +98,11 @@ test('кандидат открывает приглашение, проходи
   await page.goto(`/invite/${token}`);
 
   await expect(page.getByRole('heading', { name: 'Инженер по буровым растворам' })).toBeVisible();
-  await expect(page.getByText('Структура тестирования')).toBeVisible();
-  await expect(page.getByText(/Доступ к веб-камере и микрофону не запрашивается/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Структура тестирования' })).toBeVisible();
+  // Требование §24: камера и микрофон не запрашиваются — правило показано кандидату.
+  await expect(
+    page.getByRole('listitem').filter({ hasText: 'Доступ к веб-камере и микрофону не запрашивается' }),
+  ).toBeVisible();
 
   // Согласие обязательно: кнопка недоступна до отметки.
   const startButton = page.getByRole('button', { name: 'Начать тестирование' });
@@ -108,10 +114,14 @@ test('кандидат открывает приглашение, проходи
   // Первый шаг — триада с восемью полями.
   await expect(page.getByRole('heading', { name: 'Профессиональные критерии оценки' })).toBeVisible();
   await expect(
-    page.getByText('Какие два специалиста наиболее похожи с точки зрения профессиональной эффективности?'),
+    page.getByText('Какие два специалиста наиболее похожи с точки зрения профессиональной эффективности?', {
+      exact: false,
+    }),
   ).toBeVisible();
   // Анти-прайминг: готовых примеров конструктов нет.
-  await expect(page.getByText(/Примеры готовых формулировок не приводятся намеренно/)).toBeVisible();
+  await expect(
+    page.getByRole('note').filter({ hasText: 'Примеры готовых формулировок не приводятся намеренно' }),
+  ).toBeVisible();
 
   const sessionUrl = page.url();
   expect(sessionUrl).toMatch(/\/t\//);
@@ -123,8 +133,12 @@ test('кандидат открывает приглашение, проходи
     return result;
   };
 
-  await page.getByRole('button', { name: /Один из лучших инженеров/ }).click();
-  await page.getByRole('button', { name: /способный заранее обнаружить/ }).click();
+  // Состав триады зависит от версии ассессмента, поэтому выбираются первые
+  // два элемента списка, а не конкретные формулировки.
+  const elementButtons = page.locator('fieldset button');
+  await expect(elementButtons).toHaveCount(3);
+  await elementButtons.nth(0).click();
+  await elementButtons.nth(1).click();
 
   await page
     .getByLabel(/Чем именно эти два специалиста похожи/)

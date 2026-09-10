@@ -39,7 +39,7 @@ import { recomputeQuestionStats } from '../src/server/services/analyticsService.
 const env = getEnv();
 
 /** Используется ли второй оценщик: задаётся моделью версии ассессмента. */
-async function useSecondEvaluator(sessionId: string): Promise<boolean> {
+async function isSecondEvaluatorEnabled(sessionId: string): Promise<boolean> {
   const session = await prisma.testSession.findUnique({
     where: { id: sessionId },
     select: { version: { select: { llmModelSecondary: true, promptTemplateBId: true } } },
@@ -82,7 +82,7 @@ async function handleSessionAssessment(sessionId: string): Promise<void> {
     data: { assessmentStatus: 'RUNNING' },
   });
 
-  const second = await useSecondEvaluator(sessionId);
+  const second = await isSecondEvaluatorEnabled(sessionId);
   for (const answerId of answerIds) {
     await enqueueAnswerEvaluation(answerId, 'A');
     if (second) await enqueueAnswerEvaluation(answerId, 'B');
@@ -104,7 +104,7 @@ async function handleAnswerEvaluation(answerId: string, role: 'A' | 'B'): Promis
   });
   if (!answer) return;
 
-  const second = await useSecondEvaluator(answer.sessionId);
+  const second = await isSecondEvaluatorEnabled(answer.sessionId);
   if (await allAnswersEvaluated(answer.sessionId, second)) {
     await enqueueFinalizeScoring(answer.sessionId, 'INITIAL');
   }

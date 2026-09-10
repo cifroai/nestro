@@ -4,6 +4,12 @@ const nextConfig = {
   poweredByHeader: false,
   output: 'standalone',
   eslint: { ignoreDuringBuilds: true },
+  /**
+   * BullMQ и ioredis остаются внешними зависимостями серверной сборки:
+   * иначе сборщик пытается разрешить необязательный клиент
+   * `@valkey/valkey-glide`, который в проекте не используется.
+   */
+  serverExternalPackages: ['bullmq', 'ioredis'],
   typescript: { ignoreBuildErrors: false },
   /**
    * Исходники используют ESM-корректные спецификаторы с расширением .js

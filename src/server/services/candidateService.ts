@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { type Prisma } from '@prisma/client';
 import { prisma } from '../db/prisma.js';
 import { badRequest, notFound } from '../http/errors.js';
 import { BAND_TITLES, LEVEL_TITLES, confidenceLabel } from '../scoring/engine.js';
@@ -93,7 +93,7 @@ export async function listCandidates(query: CandidateListQuery): Promise<{
       ? {
           finalScores: {
             some: {
-              supersededById: null,
+              supersededAt: null,
               competencyId: null,
               axis: null,
               ...(query.band ? { band: query.band } : {}),
@@ -114,7 +114,7 @@ export async function listCandidates(query: CandidateListQuery): Promise<{
       ? {
           finalScores: {
             some: {
-              supersededById: null,
+              supersededAt: null,
               competency: { code: query.competencyCode },
               ...(query.minCompetencyScore !== undefined
                 ? { score0to4: { gte: query.minCompetencyScore } }
@@ -131,7 +131,7 @@ export async function listCandidates(query: CandidateListQuery): Promise<{
       include: {
         candidate: { include: { position: { select: { code: true, title: true } } } },
         finalScores: {
-          where: { supersededById: null },
+          where: { supersededAt: null },
           include: { competency: { select: { code: true, title: true } } },
         },
         riskFlags: { where: { dismissedAt: null }, select: { severity: true } },
@@ -300,7 +300,7 @@ export async function compareCandidates(sessionIds: string[]): Promise<Compariso
     include: {
       candidate: { include: { position: { select: { title: true } } } },
       finalScores: {
-        where: { supersededById: null },
+        where: { supersededAt: null },
         include: { competency: { select: { code: true, title: true } } },
       },
       riskFlags: { where: { dismissedAt: null }, select: { code: true, severity: true, explanation: true } },
@@ -450,14 +450,14 @@ export async function benchmarkComparison(benchmarkCode: string, sessionId: stri
   const [groupScores, candidateScores] = await Promise.all([
     prisma.finalScore.findMany({
       where: {
-        supersededById: null,
+        supersededAt: null,
         competencyId: { not: null },
         session: { candidateId: { in: memberIds }, status: 'COMPLETED' },
       },
       include: { competency: { select: { code: true, title: true } } },
     }),
     prisma.finalScore.findMany({
-      where: { sessionId, supersededById: null, competencyId: { not: null } },
+      where: { sessionId, supersededAt: null, competencyId: { not: null } },
       include: { competency: { select: { code: true } } },
     }),
   ]);

@@ -100,6 +100,7 @@ curl -fsS https://<host>/api/readyz
 
 ```bash
 npm run typecheck                 # строгая проверка типов
+npm run lint                      # статический анализ (ESLint 9, flat config)
 npm test                          # unit, integration, api, permissions, scoring, llm
 npm run test:e2e                  # end-to-end в браузере (нужна сборка: npm run build)
 npx tsx scripts/vocabularyScan.ts # проверка запрещённой лексики и полей модели данных

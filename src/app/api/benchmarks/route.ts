@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { type z } from 'zod';
 import { withRoute } from '@/server/http/route.js';
 import { PERMISSIONS } from '@/server/auth/permissions.js';
 import { prisma } from '@/server/db/prisma.js';
