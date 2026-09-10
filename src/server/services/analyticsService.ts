@@ -101,7 +101,7 @@ export async function analyticsSummary(query: AnalyticsQuery): Promise<Analytics
         },
       }),
       prisma.finalScore.findMany({
-        where: { supersededById: null, competencyId: null, axis: null, session: where },
+        where: { supersededAt: null, competencyId: null, axis: null, session: where },
         select: {
           sessionId: true,
           score0to100: true,
@@ -111,7 +111,7 @@ export async function analyticsSummary(query: AnalyticsQuery): Promise<Analytics
         },
       }),
       prisma.finalScore.findMany({
-        where: { supersededById: null, competencyId: { not: null }, session: where },
+        where: { supersededAt: null, competencyId: { not: null }, session: where },
         select: {
           score0to4: true,
           confidence: true,
@@ -382,7 +382,7 @@ export async function recomputeQuestionStats(): Promise<{ processed: number; fla
         if (dim.competencyId !== primaryCompetencyId) continue;
         const sessionId = dim.llmAssessment.answer.sessionId;
         const total = await prisma.finalScore.findFirst({
-          where: { sessionId, competencyId: primaryCompetencyId, supersededById: null },
+          where: { sessionId, competencyId: primaryCompetencyId, supersededAt: null },
           select: { score0to4: true },
         });
         if (total?.score0to4 === null || total?.score0to4 === undefined) continue;

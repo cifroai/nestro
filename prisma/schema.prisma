@@ -888,6 +888,10 @@ model FinalScore {
   scoringModelId    String?
   /// Явный пересчёт создаёт новую запись и ссылается на предыдущую (§32).
   supersededById    String?         @unique
+  /// Момент вытеснения записи. Действующей считается запись с NULL:
+  /// отдельное поле позволяет пометить старую запись неактивной ДО создания
+  /// новой и не нарушать частичный уникальный индекс внутри транзакции.
+  supersededAt      DateTime?
   computedAt        DateTime        @default(now())
 
   session      TestSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)

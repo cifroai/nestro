@@ -64,3 +64,14 @@ export function resetEnvCache(): void {
 
 export const isProduction = (): boolean => getEnv().NODE_ENV === 'production';
 export const isTest = (): boolean => getEnv().NODE_ENV === 'test';
+
+/**
+ * Признак Secure для cookie определяется схемой APP_URL, а не NODE_ENV.
+ *
+ * Причина: production-сборка Next.js всегда выставляет NODE_ENV=production,
+ * поэтому привязка к нему помечала бы cookie как Secure и при развёртывании
+ * по HTTP — браузер молча отбрасывал бы cookie, и вход был бы невозможен
+ * без явной ошибки. Production обязан использовать HTTPS
+ * (docs/DEPLOYMENT.md §1), и тогда признак выставляется автоматически.
+ */
+export const usesSecureCookies = (): boolean => getEnv().APP_URL.startsWith('https://');

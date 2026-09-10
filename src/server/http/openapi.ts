@@ -129,6 +129,7 @@ export function buildOpenApiDocument(appUrl: string): object {
     '/api/auth/logout': {
       post: {
         summary: 'Выход',
+        description: 'Ресурс не создаётся, поэтому статус 200, а не 201.',
         tags: ['Аутентификация'],
         security: staffSecurity,
         responses: { '200': ok('Сессия завершена'), ...commonResponses },

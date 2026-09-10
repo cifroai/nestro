@@ -43,7 +43,7 @@ async function loadContext(sessionId: string): Promise<GenerationContext> {
       version: { include: { competencies: { include: { competency: true } } } },
       contradictions: true,
       finalScores: {
-        where: { supersededById: null, competencyId: { not: null } },
+        where: { supersededAt: null, competencyId: { not: null } },
         include: { competency: { select: { code: true, title: true } } },
       },
     },

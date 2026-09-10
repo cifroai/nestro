@@ -180,19 +180,23 @@ OverallConfidence = Σ_{c∈C*} W*_c · confidence(c) · coverage
 
 ## 8. Восемь агрегированных осей (§17)
 
-`Competency.axis` относит компетенцию к одной из осей; балл оси — взвешенное
-среднее её компетенций теми же весами `W_c`, перенормированными внутри оси.
+`Competency.axis` относит компетенцию **ровно к одной** оси; балл оси —
+взвешенное среднее её компетенций теми же весами `W_c`, перенормированными
+внутри оси. Фактическое распределение (см. `prisma/seed/catalog.ts`):
 
-| Ось | Компетенции (буровые растворы / ИС) |
+| Ось | Компетенции |
 |---|---|
-| `TECHNICAL_REASONING` | `MUD_SYSTEM`, `HOLE_CLEANING`, `SOLIDS_CONTROL` / `NPT_SPEED` |
-| `SYSTEM_THINKING` | `SOLIDS_CONTROL`, `HOLE_CLEANING` / `SYSTEMS_THINKING`, `CROSS_SERVICE` |
-| `RISK_MANAGEMENT` | `RISK_ESCALATION` / `RISK_PREVENTION`, `ESCALATION` |
-| `PREVENTIVE_THINKING` | `PREVENTION` / `RISK_PREVENTION` |
+| `TECHNICAL_REASONING` | `CAUSAL`, `MUD_SYSTEM`, `HOLE_CLEANING` |
+| `SYSTEM_THINKING` | `SOLIDS_CONTROL`, `SYSTEMS_THINKING`, `CROSS_SERVICE` |
+| `RISK_MANAGEMENT` | `RISK_ESCALATION`, `ESCALATION` |
+| `PREVENTIVE_THINKING` | `PREVENTION`, `RISK_PREVENTION` |
 | `DECISION_MAKING` | `DECISION`, `DATA_TRENDS` |
-| `OPERATIONAL_MATURITY` | `DOCUMENTATION`, `ECONOMICS`, `CONTRACTOR_MGMT` |
+| `OPERATIONAL_MATURITY` | `DOCUMENTATION`, `ECONOMICS`, `CONTRACTOR_MGMT`, `NPT_SPEED` |
 | `COMMUNICATION` | `COMMUNICATION` |
-| `SELF_AWARENESS` | `LESSONS` + Kelly gap-метрики (см. §11) |
+| `SELF_AWARENESS` | `LESSONS` + сигнал рефлексии из решётки (см. §11) |
+
+Ось, у всех компетенций которой нет данных, помечается
+`notEnoughEvidence` и не получает балла — обнуление не применяется.
 
 ## 9. Квалификационные категории (§18)
 
@@ -312,7 +316,13 @@ computeGridMetrics(grid: GridMatrix): GridMetrics          // src/server/kelly
 ## 15. Воспроизводимость (§32)
 
 `FinalScore` хранит `scoringModelId`; `LLMAssessment` — `promptTemplateId`,
-`llmProvider`, `llmModel`, `llmModelVersion`. Пересчёт исторических результатов
-выполняется **только явной командой** и создаёт новую запись `FinalScore` со
-ссылкой `supersededById` на предыдущую; старая остаётся доступной. Молчаливый
-пересчёт запрещён и покрыт тестом.
+`llmProvider`, `llmModel`, `llmModelVersion`.
+
+Пересчёт выполняется **только явной командой** (`POST /api/sessions/:id/recompute`
+либо экспертная правка) и никогда не изменяет существующие записи: предыдущие
+помечаются неактивными (`supersededAt`), затем создаются новые, после чего
+старая запись получает ссылку `supersededById` на заменившую её. Порядок
+существенен: признак активности вынесен в отдельное поле именно потому, что
+ссылка на новую запись внутри транзакции ещё не существует. Прежние расчёты
+остаются доступными для разбора. Молчаливый пересчёт запрещён и покрыт тестом
+`tests/integration/candidateFlow.test.ts`.

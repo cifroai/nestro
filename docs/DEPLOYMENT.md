@@ -49,7 +49,7 @@ docker compose exec app npm run admin:create -- --email admin@example.com
 | `REDIS_URL` | да | `redis://:pass@redis:6379/0` |
 | `SESSION_SECRET` | да | ≥32 байта, подпись cookie |
 | `INVITATION_SECRET` | да | HMAC-соль для токенов приглашений |
-| `APP_URL` | да | публичный URL (для ссылок приглашений) |
+| `APP_URL` | да | публичный URL. **Схема определяет признак `Secure` для cookie сессии**: в production обязателен `https`, иначе браузер отбросит cookie и вход будет невозможен |
 | `LLM_PROVIDER` | нет | `anthropic` \| `openai` \| `openrouter` \| `local` \| `none` |
 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL_PRIMARY`, `LLM_MODEL_SECONDARY` | нет | конфиг провайдера; при `none` система работает в режиме `ASSESSMENT_PENDING` |
 | `LLM_MAX_CONCURRENCY`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | нет | защита от DoS/расходов |
@@ -134,7 +134,29 @@ docker compose exec -T postgres psql -U nestro -c \
 docker compose start app worker
 ```
 
-### 8.4. Disaster recovery
+### 8.4. Проверка целостности после восстановления
+
+```bash
+docker compose exec app npx tsx scripts/verifyIntegrity.ts
+```
+
+Скрипт проверяет: сумму весов опубликованных версий, наличие снапшота
+конфигурации, наличие ровно одного действующего итогового балла у оценённых
+сессий, обязательность ссылки на ответ и цитату у маркеров риска от модели,
+согласованность значения «недостаточно данных», наличие причины у экспертных
+оценок; выводит контрольные счётчики для сверки с исходной базой.
+
+Дополнительно доступна методическая проверка текстов:
+
+```bash
+docker compose exec app npx tsx scripts/vocabularyScan.ts
+```
+
+Она проверяет отсутствие кадровой и диагностической лексики в интерфейсе и
+seed-данных, а также отсутствие защищаемых характеристик среди полей модели
+данных.
+
+### 8.5. Disaster recovery
 
 | Показатель | Значение |
 |---|---|
@@ -146,6 +168,7 @@ docker compose start app worker
 5) прогон `npm run verify:integrity` (сверка сумм весов, наличия FinalScore у
 завершённых сессий) |
 | Учения | ежемесячное тестовое восстановление в staging, результат фиксируется |
+| Скрипты | `ops/scripts/backup.sh` (с шифрованием и проверкой дампа), `ops/scripts/restore.sh` (восстановление в отдельную базу без перезаписи действующей) |
 
 Ключи шифрования бэкапов хранятся **отдельно** от самих бэкапов.
 

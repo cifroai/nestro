@@ -251,7 +251,7 @@ export async function outcomeCorrelation(positionCode?: string) {
             where: { status: 'COMPLETED' },
             select: {
               finalScores: {
-                where: { supersededById: null, competencyId: null, axis: null },
+                where: { supersededAt: null, competencyId: null, axis: null },
                 select: { score0to100: true },
               },
             },

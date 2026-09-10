@@ -143,7 +143,7 @@ erDiagram
 | `LLMDimensionScore` | балл по компетенции внутри прогона | `competencyId`, `score` Decimal(3,2) nullable, `level` int nullable, `notEnoughEvidence` bool, `explanation`, `rubricRule`, `confidence` |
 | `LLMEvidence` | доказательство | `dimensionScoreId`, `quote`, `quoteStartOffset?`, `kind` (SUPPORTING/MISSING/RISK/STRENGTH/AMBIGUITY) |
 | `HumanReview` | экспертная проверка | `dimensionScoreId?`, `answerId?`, `competencyId`, `modelScore`, `humanScore`, `finalScore`, `reviewReason`, `markedUninformative`, `reviewerId`, `createdAt` |
-| `FinalScore` | агрегат по компетенции и общий | `sessionId`, `competencyId?` (null = overall), `axis?`, `score0to4` Decimal, `score0to100` Decimal, `level` int, `confidence` Decimal, `evidenceCount`, `notEnoughEvidence`, `band`, `scoringModelId`, `computedAt`, `supersededById?` |
+| `FinalScore` | агрегат по компетенции и общий | `sessionId`, `competencyId?` (null = overall), `axis?`, `score0to4` Decimal, `score0to100` Decimal, `level` int, `confidence` Decimal, `evidenceCount`, `notEnoughEvidence`, `band`, `scoringModelId`, `computedAt`, `supersededAt?` (действующей считается запись с NULL), `supersededById?` (ссылка на заменившую запись) |
 | `RiskFlag` | red flag | `sessionId`, `code`, `severity`, `answerId`, `quote`, `explanation`, `source` (LLM/RULE/HUMAN), `confirmedByUserId?` |
 | `Contradiction` | расхождение декларация↔поведение | `sessionId`, `constructId?`, `answerIds` JSONB, `description`, `strength` Decimal |
 | `InterviewQuestion` | вопрос к очному интервью | `sessionId`, `text`, `rationale`, `refAnswerIds` JSONB, `competencyId?`, `orderIndex` |
@@ -169,7 +169,7 @@ erDiagram
 | `ConstructRating.rating ∈ [1,7]` | CHECK constraint |
 | `LLMDimensionScore`: `score IS NULL` ⟺ `notEnoughEvidence = true` | CHECK constraint |
 | `RiskFlag.answerId` NOT NULL при `source = LLM` | CHECK constraint (§20: red flag всегда со ссылкой) |
-| Один активный `FinalScore` на (session, competency) | partial unique index `WHERE supersededById IS NULL` |
+| Один действующий `FinalScore` на (session, competency), на (session, axis) и один общий | partial unique index `WHERE "supersededAt" IS NULL`. Признак активности вынесен в отдельное поле: `supersededById` указывает на ещё не созданную запись и не может служить признаком внутри транзакции пересчёта |
 | `Invitation.tokenHash` уникален; сам токен не хранится | uniq index, токен только в ответе на создание |
 | `AuditLog` только INSERT | отсутствие update/delete в репозитории + revoke прав у app-роли (см. DEPLOYMENT) |
 
@@ -197,7 +197,7 @@ CREATE INDEX review_fts_idx ON "HumanReview"
 -- Горячие пути
 CREATE INDEX answer_session_idx        ON "Answer"("sessionId");
 CREATE INDEX llm_answer_role_idx       ON "LLMAssessment"("answerId","evaluatorRole");
-CREATE INDEX finalscore_session_idx    ON "FinalScore"("sessionId") WHERE "supersededById" IS NULL;
+CREATE INDEX finalscore_session_idx    ON "FinalScore"("sessionId") WHERE "supersededAt" IS NULL;
 CREATE INDEX auditlog_entity_idx       ON "AuditLog"("entity","entityId","createdAt" DESC);
 CREATE INDEX session_status_idx        ON "TestSession"("status","assessmentStatus");
 ```

@@ -173,7 +173,7 @@ export async function reviewQueue(query: ReviewQueueQuery) {
         candidate: { select: { id: true, fullName: true, position: { select: { title: true, code: true } } } },
         version: { select: { version: true, assessment: { select: { title: true } } } },
         finalScores: {
-          where: { supersededById: null, competencyId: null, axis: null },
+          where: { supersededAt: null, competencyId: null, axis: null },
           select: { score0to100: true, band: true, confidence: true, coverage: true },
         },
         riskFlags: { select: { code: true, severity: true } },

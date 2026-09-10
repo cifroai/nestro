@@ -33,7 +33,8 @@ import { logger } from '../logging/logger.js';
  * корректировки, вызывает чистый модуль scoring и сохраняет результат.
  *
  * Пересчёт всегда создаёт НОВЫЕ записи FinalScore, помечая предыдущие
- * через supersededById. Молчаливого пересчёта исторических результатов нет (§32).
+ * неактивными (supersededAt) и связывая их с заменившими (supersededById).
+ * Молчаливого пересчёта исторических результатов нет (§32).
  */
 
 export interface FinalizeOptions {
@@ -368,12 +369,24 @@ export async function finalizeScoring(
 
   const competencyIdByCode = new Map(competencies.map((c) => [c.competencyCode, c.competencyId]));
 
+  const supersededAt = new Date();
+
   await prisma.$transaction(async (tx) => {
-    // Предыдущие действующие записи помечаются устаревшими, но сохраняются (§32).
+    // Предыдущие действующие записи сохраняются как история (§32).
     const previous = await tx.finalScore.findMany({
-      where: { sessionId, supersededById: null },
+      where: { sessionId, supersededAt: null },
       select: { id: true, competencyId: true, axis: true },
     });
+
+    // Пометка неактивности выполняется ДО создания новых записей: иначе внутри
+    // транзакции временно существовали бы две действующие записи на одну
+    // компетенцию и срабатывал бы частичный уникальный индекс.
+    if (previous.length > 0) {
+      await tx.finalScore.updateMany({
+        where: { id: { in: previous.map((item) => item.id) } },
+        data: { supersededAt },
+      });
+    }
 
     const created: Array<{ id: string; competencyId: string | null; axis: AxisCode | null }> = [];
 
@@ -432,7 +445,7 @@ export async function finalizeScoring(
     });
     created.push({ id: overallRecord.id, competencyId: null, axis: null });
 
-    // Связываем старые записи с новыми: старая ссылается на заменившую её.
+    // Связываем историю: старая запись ссылается на заменившую её.
     for (const old of previous) {
       const replacement = created.find(
         (c) => c.competencyId === old.competencyId && c.axis === old.axis,
@@ -526,7 +539,7 @@ export async function getCriticalGaps(sessionId: string) {
   const { params, competencies } = await loadScoringParams(session.assessmentVersionId);
 
   const scores = await prisma.finalScore.findMany({
-    where: { sessionId, supersededById: null, competencyId: { not: null } },
+    where: { sessionId, supersededAt: null, competencyId: { not: null } },
     include: { competency: { select: { code: true, title: true } } },
   });
 

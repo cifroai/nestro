@@ -434,19 +434,19 @@ describe('полный путь кандидата', () => {
     expect(['EXPERT', 'HIGH', 'SUFFICIENT', 'GAPS', 'NOT_CONFIRMED']).toContain(result.band);
 
     const overall = await testPrisma.finalScore.findFirstOrThrow({
-      where: { sessionId, competencyId: null, axis: null, supersededById: null },
+      where: { sessionId, competencyId: null, axis: null, supersededAt: null },
     });
     expect(Number(overall.score0to100)).toBeGreaterThan(0);
 
     const axes = await testPrisma.finalScore.count({
-      where: { sessionId, axis: { not: null }, supersededById: null },
+      where: { sessionId, axis: { not: null }, supersededAt: null },
     });
     expect(axes).toBeGreaterThanOrEqual(6);
   });
 
   it('каждый балл компетенции имеет доказательства (§66)', async () => {
     const scores = await testPrisma.finalScore.findMany({
-      where: { sessionId, competencyId: { not: null }, supersededById: null },
+      where: { sessionId, competencyId: { not: null }, supersededAt: null },
       include: { competency: { select: { code: true } } },
     });
 
@@ -524,7 +524,7 @@ describe('полный путь кандидата', () => {
     });
 
     const before = await testPrisma.finalScore.findFirstOrThrow({
-      where: { sessionId, competencyId: dimension.competencyId, supersededById: null },
+      where: { sessionId, competencyId: dimension.competencyId, supersededAt: null },
     });
 
     const { review } = await submitReview(
@@ -542,13 +542,20 @@ describe('полный путь кандидата', () => {
 
     // Итоги пересчитаны, предыдущая запись сохранена как устаревшая (§32).
     const after = await testPrisma.finalScore.findFirstOrThrow({
-      where: { sessionId, competencyId: dimension.competencyId, supersededById: null },
+      where: { sessionId, competencyId: dimension.competencyId, supersededAt: null },
     });
     expect(after.id).not.toBe(before.id);
     expect(Number(after.score0to4)).toBeLessThan(Number(before.score0to4));
 
     const superseded = await testPrisma.finalScore.findUniqueOrThrow({ where: { id: before.id } });
     expect(superseded.supersededById).toBe(after.id);
+    expect(superseded.supersededAt).not.toBeNull();
+
+    // Инвариант: на компетенцию остаётся ровно одна действующая запись.
+    const active = await testPrisma.finalScore.count({
+      where: { sessionId, competencyId: dimension.competencyId, supersededAt: null },
+    });
+    expect(active).toBe(1);
 
     // Запись в журнале аудита присутствует.
     const audit = await testPrisma.auditLog.findFirst({

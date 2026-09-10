@@ -3,7 +3,7 @@ import { withRoute } from '@/server/http/route.js';
 import { startSessionSchema } from '@/server/validation/common.js';
 import { startSession, getSessionState } from '@/server/services/testSessionService.js';
 import { CANDIDATE_COOKIE } from '@/server/auth/session.js';
-import { isProduction } from '@/server/config/env.js';
+import { usesSecureCookies } from '@/server/config/env.js';
 import { resolveCandidate } from '@/server/auth/candidateSession.js';
 
 /**
@@ -26,15 +26,19 @@ export const POST = withRoute(
     const principal = await resolveCandidate(started.candidateToken);
     const state = await getSessionState(started.sessionId);
 
-    const response = NextResponse.json({
-      sessionId: started.sessionId,
-      resumed: started.resumed,
-      csrfToken: principal?.csrfSecret ?? null,
-      state,
-    });
+    // Старт создаёт сессию прохождения: статус 201 согласован с OpenAPI.
+    const response = NextResponse.json(
+      {
+        sessionId: started.sessionId,
+        resumed: started.resumed,
+        csrfToken: principal?.csrfSecret ?? null,
+        state,
+      },
+      { status: 201 },
+    );
     response.cookies.set(CANDIDATE_COOKIE, started.candidateToken, {
       httpOnly: true,
-      secure: isProduction(),
+      secure: usesSecureCookies(),
       sameSite: 'lax',
       path: '/',
       expires: started.tokenExpiresAt,

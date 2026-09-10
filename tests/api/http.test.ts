@@ -63,7 +63,8 @@ beforeAll(async () => {
   }
   await publishedVersionId('MUD_ENGINEER');
 
-  server = spawn('node', ['.next/standalone/server.js'], {
+  // `next start` обслуживает и статические ресурсы (см. playwright.config.ts).
+  server = spawn('npx', ['next', 'start', '-p', String(PORT), '-H', '127.0.0.1'], {
     env: {
       ...process.env,
       NODE_ENV: 'production',
@@ -148,8 +149,10 @@ describe('аутентификация и защита транспорта', ()
     const cookies = response.headers.getSetCookie?.() ?? [];
     const sessionCookie = cookies.find((value) => value.startsWith('nestro_sid='));
     expect(sessionCookie).toBeTruthy();
-    expect(sessionCookie).toContain('HttpOnly');
-    expect(sessionCookie).toContain('SameSite=Lax');
+    // Атрибуты cookie сравниваются без учёта регистра (RFC 6265).
+    expect(sessionCookie?.toLowerCase()).toContain('httponly');
+    expect(sessionCookie?.toLowerCase()).toContain('samesite=lax');
+    expect(sessionCookie?.toLowerCase()).toContain('path=/');
     expect(((await response.json()) as { csrfToken: string }).csrfToken).toBeTruthy();
   });
 
@@ -182,8 +185,9 @@ describe('аутентификация и защита транспорта', ()
 
   it('выход завершает сессию', async () => {
     const session = await login('api-hr@test.local');
+    // Выход не создаёт ресурс, поэтому отвечает 200 (см. OpenAPI).
     const logout = await fetch(`${BASE}/api/auth/logout`, { method: 'POST', headers: authed(session) });
-    expect(logout.status).toBe(201);
+    expect(logout.status).toBe(200);
     const after = await fetch(`${BASE}/api/candidates`, { headers: { cookie: session.cookie } });
     expect(after.status).toBe(401);
   });
@@ -321,7 +325,8 @@ describe('изоляция кандидата', () => {
       value.startsWith('nestro_cand='),
     );
     expect(candidateCookie).toBeTruthy();
-    expect(candidateCookie).toContain('HttpOnly');
+    expect(candidateCookie?.toLowerCase()).toContain('httponly');
+    expect(candidateCookie?.toLowerCase()).toContain('samesite=lax');
 
     const started = (await start.json()) as { sessionId: string; csrfToken: string };
     const cookie = (candidateCookie ?? '').split(';')[0] as string;

@@ -182,7 +182,7 @@ export async function buildReport(sessionId: string): Promise<ReportView> {
         },
       },
       finalScores: {
-        where: { supersededById: null },
+        where: { supersededAt: null },
         include: { competency: { select: { code: true, title: true, axis: true } } },
       },
       riskFlags: { orderBy: [{ severity: 'desc' }, { createdAt: 'asc' }] },
@@ -566,7 +566,7 @@ export async function buildDrillDown(sessionId: string, competencyCode: string):
   if (!competency) throw notFound('Компетенция не найдена');
 
   const finalScore = await prisma.finalScore.findFirst({
-    where: { sessionId, competencyId: competency.id, supersededById: null },
+    where: { sessionId, competencyId: competency.id, supersededAt: null },
   });
 
   const answers = await prisma.answer.findMany({
