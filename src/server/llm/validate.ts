@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import type { JSONSchemaObject } from './types.js';
@@ -13,11 +14,23 @@ addFormats(ajv);
 
 const compiled = new Map<string, ValidateFunction>();
 
+/**
+ * Ключ кеша включает отпечаток самой схемы, а не только её имя.
+ * Схема одного и того же контракта различается по набору допустимых кодов
+ * компетенций для каждого вопроса; кеширование по имени применяло бы схему
+ * первого вопроса ко всем последующим.
+ */
+function cacheKey(schemaName: string, schema: JSONSchemaObject): string {
+  const fingerprint = createHash('sha256').update(JSON.stringify(schema)).digest('hex').slice(0, 32);
+  return `${schemaName}:${fingerprint}`;
+}
+
 function compile(schemaName: string, schema: JSONSchemaObject): ValidateFunction {
-  const cached = compiled.get(schemaName);
+  const key = cacheKey(schemaName, schema);
+  const cached = compiled.get(key);
   if (cached) return cached;
   const fn = ajv.compile(schema);
-  compiled.set(schemaName, fn);
+  compiled.set(key, fn);
   return fn;
 }
 

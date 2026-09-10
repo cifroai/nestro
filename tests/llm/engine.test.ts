@@ -381,3 +381,27 @@ describe('NoopProvider', () => {
     ).rejects.toBeInstanceOf(LLMUnavailableError);
   });
 });
+
+describe('кеш скомпилированных схем', () => {
+  it('схемы с разным набором компетенций не подменяют друг друга', () => {
+    // Регрессия: кеширование по имени схемы применяло схему первого вопроса
+    // ко всем последующим, из-за чего валидные ответы отбрасывались.
+    const narrow = buildAssessmentSchema(['LESSONS'], LLM_FLAG_CODES);
+    const wide = buildAssessmentSchema(['CAUSAL', 'PREVENTION', 'DECISION'], LLM_FLAG_CODES);
+
+    const narrowOutput = validOutput();
+    narrowOutput.dimension_scores[0]!.competency_code = 'LESSONS';
+    const wideOutput = validOutput({
+      dimension_scores: [
+        { ...validOutput().dimension_scores[0]!, competency_code: 'CAUSAL' },
+        { ...validOutput().dimension_scores[0]!, competency_code: 'PREVENTION' },
+      ],
+    });
+
+    // Одно и то же имя схемы, разный набор допустимых кодов.
+    expect(validateStructuredOutput(JSON.stringify(narrowOutput), narrow, 'assessment_output').ok).toBe(true);
+    expect(validateStructuredOutput(JSON.stringify(wideOutput), wide, 'assessment_output').ok).toBe(true);
+    // Узкая схема по-прежнему отклоняет чужие коды.
+    expect(validateStructuredOutput(JSON.stringify(wideOutput), narrow, 'assessment_output').ok).toBe(false);
+  });
+});

@@ -8,6 +8,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/e2e/**'],
     setupFiles: ['tests/setup.ts'],
+    globalSetup: ['tests/globalSetup.ts'],
     testTimeout: 30_000,
     hookTimeout: 60_000,
     pool: 'forks',
