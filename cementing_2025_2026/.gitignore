@@ -1,1 +1,8 @@
 node_modules
+# Репозиторий публичный: корпоративные шаблоны, презентации на их основе и данные реестра не коммитятся
+template/
+data/
+output/*.pptx
+output/*.pdf
+!output/style_sample.pptx
+!output/style_sample.pdf
