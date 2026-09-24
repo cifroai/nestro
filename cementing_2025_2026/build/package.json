@@ -1,0 +1,7 @@
+{
+  "name": "rvp-cementing-deck",
+  "private": true,
+  "description": "Генератор презентации «Качество цементирования 2025→2026» в стиле «Деловой стандарт»",
+  "scripts": { "bg": "python3 make_bg.py assets/bg.jpg", "sample": "node build_style_sample.js" },
+  "dependencies": { "pptxgenjs": "^4.0.1", "react": "^19.0.0", "react-dom": "^19.0.0", "react-icons": "^5.5.0", "sharp": "^0.34.0" }
+}
