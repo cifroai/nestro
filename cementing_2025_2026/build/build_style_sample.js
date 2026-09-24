@@ -1,6 +1,6 @@
 const pptxgen = require("pptxgenjs");
 const path = require("path");
-const { FaOilWell, FaChartColumn, FaTableCells, FaPalette } = require("react-icons/fa6");
+const { FaOilWell, FaChartColumn, FaTableCells, FaPalette, FaChartLine, FaRulerVertical } = require("react-icons/fa6");
 const S = require("./style");
 const { C, F } = S;
 
@@ -11,12 +11,13 @@ const { C, F } = S;
   pres.author = "СП «РУСВЬЕТПЕТРО»";
   const icWell = await S.icon(FaOilWell), icChart = await S.icon(FaChartColumn),
         icTable = await S.icon(FaTableCells), icPal = await S.icon(FaPalette);
+  const tlChart = await S.icon(FaChartLine, "#4F9D46"), tlRuler = await S.icon(FaRulerVertical, "#2F5FA6");
 
   // ---------- 1. Титульный ----------
   {
     const s = pres.addSlide(); S.background(s);
     s.addText("СП «РУСВЬЕТПЕТРО»", { x: 1.3, y: 0.3, w: 5, h: 0.45, margin: 0, isTextBox: true, fontFace: F.head, fontSize: 16, color: "FFFFFF" });
-    S.card(s, pres); S.progress(s, pres);
+    S.card(s, pres); S.topStrip(s, pres); S.progress(s, pres);
     // Схема конструкции скважины: цементное кольцо (лайм) между стенкой ствола и колонной
     const cx = 2.55, g = 1.85;
     const strings = [
@@ -38,15 +39,19 @@ const { C, F } = S;
     lab("Кондуктор", 2.6); lab("Техническая", 4.3); lab("Эксплуатационная", 5.9);
     lab("ВПЦ план", 3.38, C.blue); lab("ВПЦ факт", 3.82, C.red);
 
-    s.addText("ИНЖЕНЕРНЫЙ АНАЛИЗ · АКЦ · ВПЦ · SRTi", { x: 5.6, y: 2.15, w: 6.8, h: 0.3, margin: 0, isTextBox: true, fontFace: F.medium, fontSize: 12, color: C.muted, charSpacing: 1.5 });
+    const tx = 5.3, tw = 5.4; // центральная колонка, текст по центру — как в шаблоне
+    s.addText("ИНЖЕНЕРНЫЙ АНАЛИЗ · АКЦ · ВПЦ · SRTi", { x: tx, y: 2.3, w: tw, h: 0.3, margin: 0, isTextBox: true, fontFace: F.medium, fontSize: 11, color: C.muted, charSpacing: 1.5, align: "center" });
     s.addText([
       { text: "КАЧЕСТВО", options: { breakLine: true } },
       { text: "ЦЕМЕНТИРОВАНИЯ" },
-    ], { x: 5.6, y: 2.55, w: 6.9, h: 1.55, margin: 0, isTextBox: true, fontFace: F.head, fontSize: 40, color: C.green, lineSpacingMultiple: 0.9 });
-    s.addText("обсадных колонн: 2025 → 2026", { x: 5.6, y: 4.1, w: 6.9, h: 0.6, margin: 0, isTextBox: true, fontFace: F.head, fontSize: 26, color: C.blue });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 5.6, y: 5.05, w: 3.3, h: 0.62, rectRadius: 0.31, fill: { color: C.greenBtn }, line: { color: C.greenBtn, width: 0 },
+    ], { x: tx, y: 2.7, w: tw, h: 1.3, margin: 0, isTextBox: true, fontFace: F.head, fontSize: 32, color: C.green, lineSpacingMultiple: 0.92, align: "center" });
+    s.addText("обсадных колонн: 2025 → 2026", { x: tx, y: 4.0, w: tw, h: 0.55, margin: 0, isTextBox: true, fontFace: F.head, fontSize: 21, color: C.blue, align: "center" });
+    const bw = 3.1;
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: tx + (tw - bw) / 2, y: 5.0, w: bw, h: 0.62, rectRadius: 0.31, fill: { color: C.greenBtn }, line: { color: C.greenBtn, width: 0 },
       shadow: { type: "outer", color: "3F8A3A", opacity: 0.25, blur: 8, offset: 2, angle: 90 } });
-    s.addText("Образец оформления", { x: 5.6, y: 5.05, w: 3.3, h: 0.62, margin: 0, isTextBox: true, fontFace: F.medium, fontSize: 14, color: "FFFFFF", align: "center", valign: "middle" });
+    s.addText("Образец оформления", { x: tx + (tw - bw) / 2, y: 5.0, w: bw, h: 0.62, margin: 0, isTextBox: true, fontFace: F.medium, fontSize: 14, color: "FFFFFF", align: "center", valign: "middle" });
+    S.tile(s, pres, { x: 10.95, y: 1.95, iconData: tlChart });
+    S.tile(s, pres, { x: 10.95, y: 3.75, iconData: tlRuler });
     s.addImage({ path: path.join(S.ASSETS, "gradline.png"), x: 1.0, y: 6.62, w: 11.3, h: 0.05 });
   }
 
@@ -155,6 +160,8 @@ const { C, F } = S;
     S.sourcePill(s, pres, "Цвета сняты с фото экрана и нормализованы", 4);
   }
 
-  await pres.writeFile({ fileName: path.join(__dirname, "..", "output", "style_sample.pptx") });
+  const out = path.join(__dirname, "..", "output", "style_sample.pptx");
+  await pres.writeFile({ fileName: out });
+  await S.addPushTransitions(out);
   console.log("written");
 })();

@@ -37,10 +37,15 @@ botl = np.clip((y - 0.86 * H) / 40, 0, 1) * np.clip((0.36 * W - x) / 380, 0, 1)
 mask = np.clip(np.maximum(np.maximum(top, left), botl), 0, 1)
 mask = np.array(Image.fromarray((mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(6)), np.float32) / 255
 img = base * (1 - mask[..., None]) + col * mask[..., None]
+# полупрозрачная светлая панель внизу по центру (заходит под карточку)
+panel = ((x > 0.37 * W) & (x < 0.63 * W) & (y > 0.865 * H)).astype(np.float32)
+img = img * (1 - 0.35 * panel[..., None]) + 255 * 0.35 * panel[..., None]
 Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(out, quality=92)
 
 # градиентная линия (низ титульного слайда): синий → зелёный → лайм
-g = ramp(np.linspace(0.1, 0.95, 1600))[None, :, :].repeat(12, 0)
+# ступенчатая линия: 5 сегментов, как в шаблоне
+seg = [hexrgb(c) for c in ["2A4F97", "2F6FB0", "3E8F4E", "4F9D46", "8DBF45"]]
+g = np.concatenate([np.tile(c, (320, 1)) for c in seg])[None, :, :].repeat(12, 0)
 Image.fromarray(np.clip(g, 0, 255).astype(np.uint8)).save(os.path.join(os.path.dirname(out), "gradline.png"))
 # вертикальная шкала для списков: янтарь → зелёный → синий
 v = np.concatenate([np.linspace(hexrgb("E0A93B"), hexrgb("4F9D46"), 300), np.linspace(hexrgb("4F9D46"), hexrgb("2F5FA6"), 300)])

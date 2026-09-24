@@ -43,7 +43,7 @@ function card(slide, pres) {
 }
 
 // Индикатор «точка — короткое тире — длинное тире» (верх справа)
-function progress(slide, pres, x = 11.25, y = 1.28) {
+function progress(slide, pres, x = 10.85, y = 1.29) {
   slide.addShape(pres.shapes.OVAL, { x, y, w: 0.11, h: 0.11, fill: { color: C.amber }, line: { color: C.amber, width: 0 } });
   slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x + 0.19, y, w: 0.38, h: 0.11, rectRadius: 0.055, fill: { color: C.greenBtn }, line: { color: C.greenBtn, width: 0 } });
   slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x + 0.65, y, w: 0.85, h: 0.11, rectRadius: 0.055, fill: { color: C.blue }, line: { color: C.blue, width: 0 } });
@@ -81,4 +81,36 @@ function sourcePill(slide, pres, text, num) {
     fontFace: F.body, fontSize: 9, color: C.blue, align: "center", valign: "middle" });
 }
 
-module.exports = { C, F, ASSETS, icon, background, card, progress, header, inner, sourcePill };
+// Светлая полоса вверху карточки (титульный слайд) — на ней индикатор
+function topStrip(slide, pres) {
+  slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.85, y: 1.13, w: 11.6, h: 0.42, rectRadius: 0.21,
+    fill: { color: "FFFFFF", transparency: 45 }, line: { color: "FFFFFF", width: 0.75 } });
+}
+
+// Плитка с иконкой и зелёной точкой в левом верхнем углу (как 3D-плитки шаблона)
+function tile(slide, pres, { x, y, w = 1.45, h = 1.6, iconData }) {
+  slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: 0.28,
+    fill: { color: "FFFFFF", transparency: 10 }, line: { color: "FFFFFF", width: 1 },
+    shadow: { type: "outer", color: "1D3F7A", opacity: 0.10, blur: 10, offset: 3, angle: 90 } });
+  slide.addShape(pres.shapes.OVAL, { x: x + 0.16, y: y + 0.16, w: 0.1, h: 0.1, fill: { color: C.greenBtn }, line: { color: C.greenBtn, width: 0 } });
+  const s = Math.min(w, h) * 0.55;
+  slide.addImage({ data: iconData, x: x + (w - s) / 2, y: y + (h - s) / 2 + 0.05, w: s, h: s });
+}
+
+// Переход «Сдвиг» (push) на всех слайдах: фон с полосами остаётся, контент сдвигается.
+// pptxgenjs не пишет переходы, поэтому дописываем <p:transition> в XML слайдов.
+async function addPushTransitions(file) {
+  const JSZip = require("jszip");
+  const fs = require("fs");
+  const zip = await JSZip.loadAsync(fs.readFileSync(file));
+  for (const name of Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))) {
+    let xml = await zip.file(name).async("string");
+    if (!xml.includes("<p:transition")) {
+      xml = xml.replace(/(<\/p:clrMapOvr>)/, '$1<p:transition spd="med"><p:push dir="l"/></p:transition>');
+      zip.file(name, xml);
+    }
+  }
+  fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+}
+
+module.exports = { C, F, ASSETS, icon, background, card, progress, header, inner, sourcePill, topStrip, tile, addPushTransitions };
