@@ -6,3 +6,4 @@ output/*.pptx
 output/*.pdf
 !output/style_sample.pptx
 !output/style_sample.pdf
+output/*.xlsx
