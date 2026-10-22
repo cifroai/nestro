@@ -5,12 +5,17 @@
 #
 # Спросит только CLI-токен (@BotFather → бот → Serverless → CLI Access → Access token).
 # Повторный запуск обновляет приложение.
+#
+# Рекрутеры (кто может создавать кандидатов) и загрузчики резюме — Telegram ID через запятую:
+#   curl -fsSL …/deploy.sh | ADMIN_IDS=111,222 RESUME_UPLOADER_IDS=111 bash
+# Значения запоминаются в ~/.nestro-hr.env и применяются при следующих запусках.
 
 set -euo pipefail
 
 BRANCH=claude/brave-johnson-k6q0sj
 REPO=https://github.com/cifroai/nestro.git
 DIR="$HOME/nestro"
+SETTINGS="$HOME/.nestro-hr.env"
 
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 die() { printf '\n\033[1;31mОшибка: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -42,6 +47,23 @@ else
   git clone -q -b "$BRANCH" "$REPO" "$DIR"
 fi
 cd "$DIR/interview-rating-serverless"
+
+# Настройки доступа: из переменных запуска, иначе из сохранённых.
+touch "$SETTINGS"
+for var in ADMIN_IDS RESUME_UPLOADER_IDS; do
+  if [[ -n "${!var+x}" ]]; then
+    [[ "${!var}" =~ ^[0-9,\ ]*$ ]] || die "$var: только цифры через запятую"
+    sed -i "/^$var=/d" "$SETTINGS"
+    echo "$var=\"$(echo "${!var}" | tr -d ' ')\"" >> "$SETTINGS"
+  fi
+done
+# shellcheck disable=SC1090
+. "$SETTINGS"
+for var in ADMIN_IDS RESUME_UPLOADER_IDS; do
+  ids=$(echo "${!var:-}" | tr -d ' ' | sed 's/,,*/,/g; s/^,//; s/,$//')
+  sed -i "s/^export const $var = \[.*\];/export const $var = [$ids];/" tgcloud/lib/config.js
+  echo "$var: [${ids:-любой}]"
+done
 npm install --silent --no-audit --no-fund
 npx tgcloud init --no-git >/dev/null
 
