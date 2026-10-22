@@ -1,0 +1,17 @@
+{
+  "name": "interview-rating-serverless",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Оценка кандидатов по итогам собеседования — Telegram Mini App на Telegram Serverless",
+  "type": "module",
+  "scripts": {
+    "setup": "tgcloud init --no-git && tgcloud login",
+    "deploy": "tgcloud push",
+    "migrate": "tgcloud migrate",
+    "status": "tgcloud status",
+    "test": "node --experimental-sqlite test/run.js"
+  },
+  "devDependencies": {
+    "@tgcloud/cli": "^0.2.0"
+  }
+}

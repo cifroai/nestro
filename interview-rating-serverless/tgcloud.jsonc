@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/@tgcloud/cli/schema/tgcloud.json",
+  // Папка с интерфейсом Mini App — публикуется как есть, сборка не нужна.
+  "static": {
+    "source": "public"
+  }
+}

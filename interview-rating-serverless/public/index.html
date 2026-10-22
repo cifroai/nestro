@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Оценка кандидата</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app">
+    <div class="loader" id="loader">Загрузка…</div>
+
+    <section id="error" class="card hidden">
+      <h2>Не удалось открыть оценку</h2>
+      <p id="error-text"></p>
+    </section>
+
+    <section id="candidate" class="card hidden">
+      <div class="label">Кандидат</div>
+      <h1 id="c-name"></h1>
+      <div id="c-position" class="muted"></div>
+
+      <div class="resume">
+        <div id="resume-info" class="resume-info"></div>
+        <div class="row">
+          <button id="resume-open" class="secondary hidden">Открыть резюме</button>
+          <button id="resume-upload" class="secondary hidden">Загрузить резюме</button>
+        </div>
+        <input type="file" id="resume-file" class="hidden">
+      </div>
+    </section>
+
+    <section id="vote" class="hidden">
+      <div class="card">
+        <h2>Ваша оценка</h2>
+        <p class="muted" id="scale-hint"></p>
+        <div id="scores" class="scores"></div>
+      </div>
+
+      <div class="card">
+        <h2>Комментарий <span class="muted small">(необязательно)</span></h2>
+        <textarea id="comment" maxlength="500" rows="3" placeholder="Сильные стороны, риски…"></textarea>
+      </div>
+
+      <div class="card">
+        <h2>Решение</h2>
+        <div class="decisions">
+          <button class="decision accept" data-decision="accept">Принять</button>
+          <button class="decision reject" data-decision="reject">Отклонить</button>
+          <button class="decision reserve" data-decision="reserve">В резерв</button>
+        </div>
+        <p class="muted small" id="vote-hint">Сначала выберите балл, затем нажмите решение.</p>
+      </div>
+    </section>
+
+    <section id="results" class="hidden">
+      <div class="card">
+        <h2>Общая оценка</h2>
+        <div class="summary">
+          <div class="stat">
+            <div class="stat-value" id="r-average">—</div>
+            <div class="muted small">средний балл</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="r-count">0</div>
+            <div class="muted small">оценок</div>
+          </div>
+        </div>
+        <div id="r-leader" class="leader"></div>
+        <div id="r-bars" class="bars"></div>
+      </div>
+
+      <div class="card">
+        <h2>Оценки участников</h2>
+        <ul id="r-votes" class="votes"></ul>
+      </div>
+
+      <div class="card">
+        <p class="muted small" id="my-vote"></p>
+        <div class="row">
+          <button id="change-vote" class="secondary">Изменить мою оценку</button>
+          <button id="refresh" class="secondary">Обновить</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
