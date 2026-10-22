@@ -37,6 +37,9 @@
 
 ## Запуск
 
+> **Установка на свой сервер одной командой** — см. [deploy/DEPLOY.md](deploy/DEPLOY.md):
+> `sudo bash deploy/install.sh hr-rate.example.ru` (Node.js, HTTPS, автозапуск, команда `hr-candidates`).
+
 Нужен Node.js 18+ (внешних зависимостей нет) и сервер с HTTPS-адресом — Telegram открывает
 Mini App только по `https://`.
 
@@ -93,6 +96,7 @@ npm run candidates -- remove <id>     # удалить кандидата
 | `BOT_USERNAME`   | —                  | Username бота — для формирования ссылки         |
 | `APP_SHORT_NAME` | —                  | Short name Mini App — для формирования ссылки   |
 | `PORT`           | `3000`             | Порт HTTP-сервера                               |
+| `HOST`           | `0.0.0.0`          | Адрес, на котором слушает сервер                |
 | `SCORE_MIN`      | `1`                | Минимальный балл                                |
 | `SCORE_MAX`      | `10`               | Максимальный балл                               |
 | `DB_FILE`        | `data/db.json`     | Файл с данными (резюме — в `data/resumes/`)     |

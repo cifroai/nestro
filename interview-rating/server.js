@@ -10,6 +10,8 @@ const crypto = require('crypto');
 const store = require('./store');
 
 const PORT = Number(process.env.PORT || 3000);
+// HOST=127.0.0.1 — слушать только локально (за обратным прокси).
+const HOST = process.env.HOST || '0.0.0.0';
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const SCORE_MIN = Number(process.env.SCORE_MIN || 1);
 const SCORE_MAX = Number(process.env.SCORE_MAX || 10);
@@ -364,7 +366,7 @@ const server = http.createServer((req, res) => {
 });
 
 if (require.main === module) {
-  server.listen(PORT, () => {
+  server.listen(PORT, HOST, () => {
     console.log(`Interview rating app: http://localhost:${PORT}${DEV_MODE ? ' (DEV_MODE)' : ''}`);
   });
 }
