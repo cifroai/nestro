@@ -6,10 +6,12 @@
 //   node scripts/candidates.js add "Иванов Иван" "Ведущий аналитик"
 //   node scripts/candidates.js list
 //   node scripts/candidates.js results <id>
+//   node scripts/candidates.js resume <id> ./resume.pdf
 //   node scripts/candidates.js remove <id>
 //
 // Для формирования ссылки нужны BOT_USERNAME и APP_SHORT_NAME (имя Mini App из @BotFather).
 
+const fs = require('fs');
 const path = require('path');
 const store = require(path.join(__dirname, '..', 'store'));
 
@@ -65,9 +67,25 @@ switch (cmd) {
     results(c);
     break;
   }
+  case 'resume': {
+    const [id, file] = args;
+    const c = store.getCandidate(id);
+    if (!c || !file) {
+      console.error(c ? 'Использование: resume <id> <путь к файлу>' : 'Кандидат не найден');
+      process.exit(1);
+    }
+    store.saveResume(id, {
+      fileName: path.basename(file),
+      ext: path.extname(file).toLowerCase(),
+      data: fs.readFileSync(file),
+      uploadedBy: 'администратор',
+    });
+    console.log(`Резюме загружено для: ${c.name}`);
+    break;
+  }
   case 'remove':
     console.log(store.removeCandidate(args[0]) ? 'Удалено' : 'Кандидат не найден');
     break;
   default:
-    console.log('Команды: add "ФИО" ["Должность"] | list | results <id> | remove <id>');
+    console.log('Команды: add "ФИО" ["Должность"] | list | results <id> | resume <id> <файл> | remove <id>');
 }

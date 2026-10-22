@@ -7,6 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'db.json');
+const RESUME_DIR = path.join(path.dirname(DB_FILE), 'resumes');
 
 function load() {
   try {
@@ -53,6 +54,7 @@ function addCandidate({ name, position, id }) {
 function removeCandidate(id) {
   const db = load();
   if (!db.candidates[id]) return false;
+  removeResumeFile(db.candidates[id]);
   delete db.candidates[id];
   persist(db);
   return true;
@@ -68,4 +70,32 @@ function saveVote(candidateId, userId, vote) {
   return candidate;
 }
 
-module.exports = { getCandidate, listCandidates, addCandidate, removeCandidate, saveVote, DB_FILE };
+function removeResumeFile(candidate) {
+  if (!candidate.resume) return;
+  fs.rmSync(path.join(RESUME_DIR, candidate.resume.file), { force: true });
+}
+
+// Сохраняет файл резюме, заменяя предыдущий. data — Buffer, ext — расширение с точкой.
+function saveResume(candidateId, { fileName, ext, data, uploadedBy }) {
+  const db = load();
+  const candidate = db.candidates[candidateId];
+  fs.mkdirSync(RESUME_DIR, { recursive: true });
+  // Имя файла на диске не зависит от присланного имени — исключает подмену пути.
+  const file = `${candidateId}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+  fs.writeFileSync(path.join(RESUME_DIR, file), data);
+  removeResumeFile(candidate);
+  candidate.resume = { file, fileName, size: data.length, uploadedBy, uploadedAt: new Date().toISOString() };
+  persist(db);
+  return candidate;
+}
+
+module.exports = {
+  getCandidate,
+  listCandidates,
+  addCandidate,
+  removeCandidate,
+  saveVote,
+  saveResume,
+  DB_FILE,
+  RESUME_DIR,
+};

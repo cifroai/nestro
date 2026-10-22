@@ -103,3 +103,7 @@ textarea {
 
 .row { display: flex; gap: 8px; }
 .secondary { flex: 1; padding: 12px; background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+
+.resume { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.resume-info { margin-bottom: 10px; font-size: 14px; }
+.resume-name { font-weight: 600; word-break: break-word; }

@@ -121,6 +121,78 @@
     $('my-vote').textContent = `Ваша оценка: ${mv.score} · ${labels[mv.decision]}`;
   }
 
+  function formatSize(bytes) {
+    if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' КБ';
+    return (bytes / 1024 / 1024).toFixed(1).replace('.', ',') + ' МБ';
+  }
+
+  function renderResume() {
+    const d = state.data;
+    const info = $('resume-info');
+    info.innerHTML = '';
+    if (d.resume) {
+      const name = document.createElement('div');
+      name.className = 'resume-name';
+      name.textContent = '📄 ' + d.resume.fileName;
+      const meta = document.createElement('div');
+      meta.className = 'muted small';
+      const date = new Date(d.resume.uploadedAt).toLocaleDateString('ru-RU');
+      meta.textContent = `${formatSize(d.resume.size)} · загрузил(а) ${d.resume.uploadedBy}, ${date}`;
+      info.append(name, meta);
+    } else {
+      info.innerHTML = '<span class="muted">Резюме пока не загружено</span>';
+    }
+    show('resume-open', !!d.resume);
+    show('resume-upload', d.canUploadResume);
+    $('resume-upload').textContent = state.uploading
+      ? 'Загрузка…'
+      : d.resume ? 'Заменить резюме' : 'Загрузить резюме';
+    $('resume-upload').disabled = !!state.uploading;
+    $('resume-file').accept = d.resumeTypes.join(',');
+  }
+
+  function openResume() {
+    const url = new URL(state.data.resume.url, location.href).href;
+    // Открываем во встроенном/внешнем браузере: там PDF и документы отображаются штатно.
+    if (tg && tg.openLink && initData) tg.openLink(url);
+    else window.open(url, '_blank');
+  }
+
+  async function uploadResume(file) {
+    const d = state.data;
+    if (file.size > d.resumeMaxMb * 1024 * 1024) {
+      notify(`Файл больше ${d.resumeMaxMb} МБ`);
+      return;
+    }
+    state.uploading = true;
+    renderResume();
+    try {
+      const headers = { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) };
+      if (initData) headers['X-Telegram-Init-Data'] = initData;
+      else if (params.get('dev')) headers['X-Dev-User'] = encodeURIComponent(params.get('dev'));
+      const res = await fetch(`/api/candidates/${encodeURIComponent(candidateId)}/resume`, {
+        method: 'POST',
+        headers,
+        body: file,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Не удалось загрузить файл');
+      state.data = json;
+      haptic('success');
+    } catch (e) {
+      haptic('error');
+      notify(e.message);
+    } finally {
+      state.uploading = false;
+      render();
+    }
+  }
+
+  function notify(message) {
+    if (tg && tg.showAlert && initData) tg.showAlert(message);
+    else alert(message);
+  }
+
   function render() {
     const d = state.data;
     show('loader', false);
@@ -128,6 +200,7 @@
     $('c-name').textContent = d.name;
     $('c-position').textContent = d.position || '';
     show('candidate', true);
+    renderResume();
 
     const voting = !d.myVote || state.editing;
     show('vote', voting);
@@ -159,8 +232,7 @@
       window.scrollTo(0, 0);
     } catch (e) {
       haptic('error');
-      if (tg && tg.showAlert) tg.showAlert(e.message);
-      else alert(e.message);
+      notify(e.message);
     } finally {
       state.busy = false;
       updateDecisionButtons();
@@ -184,6 +256,13 @@
     render();
   };
   $('refresh').onclick = load;
+  $('resume-open').onclick = openResume;
+  $('resume-upload').onclick = () => $('resume-file').click();
+  $('resume-file').onchange = (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (file) uploadResume(file);
+  };
 
   if (!initData && !params.get('dev')) {
     fail('Это приложение работает внутри Telegram. Откройте ссылку на устройстве, где установлен Telegram.');

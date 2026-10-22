@@ -17,11 +17,37 @@ const SCORE_MAX = Number(process.env.SCORE_MAX || 10);
 const INIT_DATA_TTL = Number(process.env.INIT_DATA_TTL || 86400);
 // DEV_MODE=1 разрешает открывать приложение в обычном браузере без Telegram (только для отладки).
 const DEV_MODE = process.env.DEV_MODE === '1';
+// Максимальный размер файла резюме, МБ.
+const RESUME_MAX_MB = Number(process.env.RESUME_MAX_MB || 10);
+// Сколько секунд действует ссылка на просмотр резюме.
+const RESUME_LINK_TTL = Number(process.env.RESUME_LINK_TTL || 3600);
+// Telegram ID через запятую, кому разрешено загружать резюме. Пусто — любому участнику.
+const RESUME_UPLOADERS = (process.env.RESUME_UPLOADERS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const LINK_SECRET = crypto
+  .createHash('sha256')
+  .update('resume-link:' + (BOT_TOKEN || crypto.randomBytes(32).toString('hex')))
+  .digest();
 
 const DECISIONS = {
   accept: 'Принять',
   reject: 'Отклонить',
   reserve: 'В резерв',
+};
+
+// Допустимые форматы резюме: расширение → MIME-тип при отдаче.
+const RESUME_TYPES = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.rtf': 'application/rtf',
+  '.odt': 'application/vnd.oasis.opendocument.text',
+  '.txt': 'text/plain; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
 };
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -109,6 +135,15 @@ function summarize(candidate, userId) {
   }
 
   const myVote = userId != null ? candidate.votes[String(userId)] || null : null;
+  const resume = candidate.resume
+    ? {
+        fileName: candidate.resume.fileName,
+        size: candidate.resume.size,
+        uploadedBy: candidate.resume.uploadedBy,
+        uploadedAt: candidate.resume.uploadedAt,
+        url: resumeLink(candidate),
+      }
+    : null;
 
   return {
     id: candidate.id,
@@ -116,6 +151,10 @@ function summarize(candidate, userId) {
     position: candidate.position,
     scale: { min: SCORE_MIN, max: SCORE_MAX },
     decisionsLabels: DECISIONS,
+    resume,
+    canUploadResume: canUploadResume(userId),
+    resumeTypes: Object.keys(RESUME_TYPES),
+    resumeMaxMb: RESUME_MAX_MB,
     myVote,
     // Результаты показываем только тем, кто уже проголосовал, чтобы не влиять на оценку.
     results: myVote
@@ -132,6 +171,58 @@ function summarize(candidate, userId) {
   };
 }
 
+function canUploadResume(userId) {
+  return RESUME_UPLOADERS.length === 0 || RESUME_UPLOADERS.includes(String(userId));
+}
+
+function signResume(id, file, exp) {
+  return crypto.createHmac('sha256', LINK_SECRET).update(`${id}:${file}:${exp}`).digest('base64url');
+}
+
+// Ссылка на файл подписана и ограничена по времени: её можно открыть во внешнем браузере
+// (вне Telegram), но нельзя подобрать или использовать бессрочно.
+function resumeLink(candidate) {
+  const exp = Math.floor(Date.now() / 1000) + RESUME_LINK_TTL;
+  const sig = signResume(candidate.id, candidate.resume.file, exp);
+  return `/resume/${candidate.id}?exp=${exp}&sig=${sig}`;
+}
+
+function serveResume(req, res, id, query) {
+  const candidate = store.getCandidate(id);
+  const exp = Number(query.get('exp'));
+  const sig = String(query.get('sig') || '');
+  const valid =
+    candidate &&
+    candidate.resume &&
+    exp > Date.now() / 1000 &&
+    sig.length > 0 &&
+    crypto.timingSafeEqual(
+      crypto.createHash('sha256').update(sig).digest(),
+      crypto.createHash('sha256').update(signResume(id, candidate.resume.file, exp)).digest(),
+    );
+  if (!valid) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Ссылка недействительна или устарела. Откройте резюме заново из приложения.');
+    return;
+  }
+  const { file, fileName } = candidate.resume;
+  const ext = path.extname(file).toLowerCase();
+  fs.readFile(path.join(store.RESUME_DIR, file), (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Файл не найден');
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': RESUME_TYPES[ext] || 'application/octet-stream',
+      'Content-Length': data.length,
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+    });
+    res.end(req.method === 'HEAD' ? undefined : data);
+  });
+}
+
 function send(res, status, body) {
   const data = JSON.stringify(body);
   res.writeHead(status, {
@@ -141,26 +232,23 @@ function send(res, status, body) {
   res.end(data);
 }
 
-function readBody(req, limit = 16 * 1024) {
+function readRaw(req, limit) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
+    // При превышении лимита дочитываем запрос без сохранения, чтобы клиент получил ответ с ошибкой.
     req.on('data', (c) => {
       size += c.length;
-      if (size > limit) {
-        reject(new Error('too large'));
-        req.destroy();
-      } else chunks.push(c);
+      if (size <= limit) chunks.push(c);
     });
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
-      } catch (e) {
-        reject(e);
-      }
-    });
+    req.on('end', () => (size > limit ? reject(new Error('too large')) : resolve(Buffer.concat(chunks))));
     req.on('error', reject);
   });
+}
+
+async function readBody(req, limit = 16 * 1024) {
+  const raw = await readRaw(req, limit);
+  return JSON.parse(raw.toString('utf8') || '{}');
 }
 
 function serveStatic(req, res) {
@@ -186,7 +274,7 @@ async function handleApi(req, res, pathname) {
     return send(res, 200, { devMode: DEV_MODE });
   }
 
-  const m = pathname.match(/^\/api\/candidates\/([A-Za-z0-9_-]{1,64})(\/vote)?$/);
+  const m = pathname.match(/^\/api\/candidates\/([A-Za-z0-9_-]{1,64})(\/vote|\/resume)?$/);
   if (!m) return send(res, 404, { error: 'Не найдено' });
 
   const user = authenticate(req);
@@ -199,7 +287,34 @@ async function handleApi(req, res, pathname) {
     return send(res, 200, summarize(candidate, user.id));
   }
 
-  if (req.method === 'POST' && m[2]) {
+  if (req.method === 'POST' && m[2] === '/resume') {
+    if (!canUploadResume(user.id)) return send(res, 403, { error: 'Загрузка резюме вам недоступна' });
+    let fileName;
+    try {
+      fileName = decodeURIComponent(String(req.headers['x-file-name'] || ''));
+    } catch {
+      fileName = '';
+    }
+    fileName = path.basename(fileName).slice(0, 200);
+    const ext = path.extname(fileName).toLowerCase();
+    if (!RESUME_TYPES[ext]) {
+      return send(res, 400, { error: 'Допустимые форматы: ' + Object.keys(RESUME_TYPES).join(', ') });
+    }
+    if (Number(req.headers['content-length']) > RESUME_MAX_MB * 1024 * 1024) {
+      return send(res, 413, { error: `Файл больше ${RESUME_MAX_MB} МБ` });
+    }
+    let data;
+    try {
+      data = await readRaw(req, RESUME_MAX_MB * 1024 * 1024);
+    } catch {
+      return send(res, 413, { error: `Файл больше ${RESUME_MAX_MB} МБ` });
+    }
+    if (!data.length) return send(res, 400, { error: 'Пустой файл' });
+    const updated = store.saveResume(candidate.id, { fileName, ext, data, uploadedBy: displayName(user) });
+    return send(res, 200, summarize(updated, user.id));
+  }
+
+  if (req.method === 'POST' && m[2] === '/vote') {
     let body;
     try {
       body = await readBody(req);
@@ -228,7 +343,12 @@ async function handleApi(req, res, pathname) {
 }
 
 const server = http.createServer((req, res) => {
-  const { pathname } = new URL(req.url, 'http://x');
+  const { pathname, searchParams } = new URL(req.url, 'http://x');
+  const resumeMatch = pathname.match(/^\/resume\/([A-Za-z0-9_-]{1,64})$/);
+  if (resumeMatch && (req.method === 'GET' || req.method === 'HEAD')) {
+    serveResume(req, res, resumeMatch[1], searchParams);
+    return;
+  }
   if (pathname.startsWith('/api/')) {
     handleApi(req, res, pathname).catch((e) => {
       console.error(e);
